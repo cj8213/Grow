@@ -1,13 +1,9 @@
 --!strict
 -- DropService.lua
--- Server-side physical world drop system.
--- When a block is broken or a tree is harvested, items appear as 2D sprites
--- resting on the nearest solid tile below. No native physics — the server's
--- Workspace is empty (tiles are client-rendered), so we use math-based gravity.
--- Drops are scoped per-world (Workspace.Drops_{WorldName}) and persisted in
--- worldData.drops for cross-restart durability (enabling "Drop Rooms").
--- The client picks up via instant proximity (no magnet), then fires
--- RequestPickupDrop to claim them server-side.
+-- Server-side authoritative drop system.
+-- Drops are stored in worldData.drops[] (source of truth).
+-- Workspace Drops_{WORLDNAME} folders are visual representations only.
+-- Uses remotes: DropSpawned, DropDestroyed, WorldDropsLoaded, RequestPickupDrop
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -20,21 +16,14 @@ local ItemDatabase = require(ReplicatedStorage.Shared.ItemDatabase)
 
 local DropService = {}
 
--- Drop folder name prefix — each world gets Workspace.Drops_{worldName}
 local DROPS_FOLDER_PREFIX = "Drops_"
-
--- Maximum distance (in studs) a player can be from a drop to pick it up.
--- Set to 12 to provide network tolerance padding: the client triggers at 6 studs,
--- but by the time the server receives the RemoteEvent, the player may have moved
--- or the server's authoritative position may lag behind due to ping.
 local PICKUP_RADIUS = 12
 
--- Unique ID counter for drops within this server session
+-- Unique global counter — never resets within server session
 local dropIdCounter = 0
 
 --[[
-	Get (or create) the world-scoped drop folder for a given world name.
-	e.g., Workspace.Drops_MAIN
+	Get or create the world-scoped drop folder.
 ]]
 local function getWorldDropFolder(worldName: string): Folder
 	local folderName = DROPS_FOLDER_PREFIX .. worldName
@@ -48,85 +37,23 @@ local function getWorldDropFolder(worldName: string): Folder
 end
 
 --[[
-	Find the Y-coordinate of the first solid tile below (tileX, startTileY).
-	Searches downward through worldData.tiles. If no solid tile is found,
-	returns startTileY (drop sits at the broken/harvested tile itself).
-
-	A tile is considered "solid" if its foreground (fg) > 0.
-
-	@param worldData: table — the world data containing the tile grid
-	@param tileX: number — column to search
-	@param startTileY: number — starting row (the broken/harvested tile)
-	@return number — the tile Y of the surface to rest on
+	Create a visual Part for a drop. Always uses worldName; never hardcodes "MAIN".
 ]]
-local function findSurfaceY(worldData: table, tileX: number, startTileY: number): number
-	if not worldData or not worldData.tiles then
-		return startTileY
-	end
+local function createDropPart(entry: table): Part
+	local TILE_SIZE = WorldConfig.TILE_SIZE or 4
+	local worldName = string.upper(entry.worldName or "UNKNOWN")
+	local xOffset = entry.xOffset or 0
+	local tileX = entry.tileX or 0
+	local tileY = entry.tileY or 0
 
-	local width = WorldConfig.WORLD_WIDTH
-	local height = WorldConfig.WORLD_HEIGHT
-
-	-- Search downward from the tile below startTileY
-	for y = startTileY + 1, height - 1 do
-		local tileIndex = tileX + y * width + 1
-		local tile = worldData.tiles[tileIndex]
-		if tile and tile.fg and tile.fg > 0 then
-			-- Found a solid tile — rest on top of it (tile y - 1)
-			return y - 1
-		end
-	end
-
-	-- No solid tile found below; rest at the bottom of the world
-	return height - 1
-end
-
---[[
-	Spawn a 2D sprite drop Part in the world using math-based gravity.
-	Persists the drop metadata into worldData.drops so it survives restarts.
-
-	Since the server's Workspace has no physical tiles (they are rendered
-	client-side by WorldRenderer.lua), we cannot rely on native Roblox gravity.
-	Instead, we scan worldData.tiles downward from the broken tile to find
-	the nearest solid surface, then place the drop anchored at that position.
-
-	The Part is invisible (Transparency = 1) and carries a BillboardGui with
-	an ImageLabel for the 2D sprite visual. The client sees this as a floating
-	item icon above the tile.
-
-	@param itemId: number — the item ID to drop
-	@param count: number — how many of this item
-	@param worldData: table — the world data (for surface-finding and persistence)
-	@param tileX: number — the tile column where the block was broken
-	@param tileY: number — the tile row where the block was broken
-]]
-function DropService.SpawnDrop(itemId: number, count: number, worldData: table, tileX: number, tileY: number)
-	local worldName = worldData.name or "MAIN"
-	local folder = getWorldDropFolder(worldName)
-
-	-- Ensure the worldData.drops array exists
-	worldData.drops = worldData.drops or {}
-
-	-- Math-based gravity: find the surface tile below the break point
-	local surfaceY = findSurfaceY(worldData, tileX, tileY)
-
-	-- Calculate the resting position on top of the surface tile
-	-- Tile center: X = tileX * TILE_SIZE_STUDS, Y = -surfaceY * TILE_SIZE_STUDS
-	-- Add a small random X-offset so multiple drops don't stack perfectly
-	local xOffset = math.random(-8, 8) / 10 -- -0.8 to 0.8 studs
 	local restingPosition = Vector3.new(
-		tileX * WorldConfig.TILE_SIZE_STUDS + xOffset,
-		-surfaceY * WorldConfig.TILE_SIZE_STUDS,
+		tileX * TILE_SIZE + xOffset,
+		-tileY * TILE_SIZE,
 		0
 	)
 
-	-- Generate a unique ID for this drop
-	dropIdCounter += 1
-	local dropId = dropIdCounter
-
-	-- Create the invisible anchor Part
 	local part = Instance.new("Part")
-	part.Name = `Drop_{itemId}`
+	part.Name = `Drop_{entry.itemId}`
 	part.Size = Vector3.new(1, 1, 0.2)
 	part.CFrame = CFrame.new(restingPosition)
 	part.Anchored = true
@@ -134,32 +61,27 @@ function DropService.SpawnDrop(itemId: number, count: number, worldData: table, 
 	part.CanQuery = true
 	part.CanTouch = false
 	part.Transparency = 1
-
-	-- Assign to "Drops" collision group (still useful for query filtering)
 	PhysicsService:SetPartCollisionGroup(part, "Drops")
 
-	-- Store item data as IntValues
 	local itemIdValue = Instance.new("IntValue")
 	itemIdValue.Name = "DropItemId"
-	itemIdValue.Value = itemId
+	itemIdValue.Value = entry.itemId
 	itemIdValue.Parent = part
 
 	local countValue = Instance.new("IntValue")
 	countValue.Name = "DropCount"
-	countValue.Value = count
+	countValue.Value = entry.count
 	countValue.Parent = part
 
-	-- Store the unique drop ID for worldData.drops lookup
 	local idValue = Instance.new("IntValue")
 	idValue.Name = "DropId"
-	idValue.Value = dropId
+	idValue.Value = entry.id
 	idValue.Parent = part
 
-	-- BillboardGui for the 2D sprite visual
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "DropSprite"
-	billboard.Size = UDim2.new(0, 28, 0, 28)     -- 28x28 pixels (small icon)
-	billboard.StudsOffset = Vector3.new(0, 1.2, 0) -- float above the tile
+	billboard.Size = UDim2.new(0, 28, 0, 28)
+	billboard.StudsOffset = Vector3.new(0, 1.2, 0)
 	billboard.AlwaysOnTop = true
 	billboard.Parent = part
 
@@ -167,10 +89,9 @@ function DropService.SpawnDrop(itemId: number, count: number, worldData: table, 
 	image.Name = "ItemIcon"
 	image.Size = UDim2.new(1, 0, 1, 0)
 	image.ResampleMode = Enum.ResamplerMode.Pixelated
-	image.Image = "" -- Leave blank for now; map item textures later
+	image.Image = ""
 
-	-- Use item color so the drop is visible even without a texture
-	local itemDef = ItemDatabase.GetItem(itemId) or ItemDatabase.GetSeed(itemId)
+	local itemDef = ItemDatabase.GetItem(entry.itemId) or ItemDatabase.GetSeed(entry.itemId)
 	if itemDef then
 		image.BackgroundColor3 = itemDef.color
 		image.BackgroundTransparency = 0
@@ -179,219 +100,214 @@ function DropService.SpawnDrop(itemId: number, count: number, worldData: table, 
 	end
 
 	image.Parent = billboard
-
-	part.Parent = folder
-
-	-- Persist the drop metadata
-	local dropEntry = {
-		id = dropId,
-		itemId = itemId,
-		count = count,
-		tileX = tileX,
-		surfaceY = surfaceY,
-		xOffset = xOffset,
-	}
-	table.insert(worldData.drops, dropEntry)
+	part.Parent = getWorldDropFolder(worldName)
+	return part
 end
 
 --[[
-	Respawn physical drop Parts from saved worldData.drops data.
-	Called when a world is loaded from DataStore (after a server restart).
+	Spawn a drop in the world.
+	- Adds entry to worldData.drops[]
+	- Creates visual Part in Workspace.Drops_{WORLDNAME}
+	- Fires DropSpawned to ALL players in that world
+]]
+function DropService.SpawnDrop(itemId: number, count: number, worldData: table, tileX: number, tileY: number)
+	local tileSize = WorldConfig.TILE_SIZE or 4
+	local worldName = string.upper(worldData.name or "MAIN")
+	print(`[DropService] SpawnDrop tileSize={WorldConfig.TILE_SIZE} itemId={itemId}`)
+	print(`[DropService] SpawnDrop: itemId={itemId}x{count} at ({tileX},{tileY}) world="{worldName}"`)
 
-	@param worldName: string — the world name
-	@param worldData: table — the world data containing the drops array
+	worldData.drops = worldData.drops or {}
+
+	dropIdCounter += 1
+	local xOffset = math.random(-8, 8) / 10
+
+	local dropEntry = {
+		id = dropIdCounter,
+		itemId = itemId,
+		count = count,
+		worldName = worldName,
+		tileX = tileX,
+		tileY = tileY,
+		xOffset = xOffset,
+	}
+
+	table.insert(worldData.drops, dropEntry)
+
+	-- Create visual Part
+	createDropPart(dropEntry)
+
+	-- Broadcast to all players in the world
+	PlayerManager.BroadcastToWorld(worldName, "DropSpawned", dropEntry)
+
+	print(`[DropService] Drop #{dropEntry.id} spawned — worldData.drops now has {#worldData.drops} entries`)
+end
+
+--[[
+	Load saved drops from worldData.drops on world load.
+	Creates Parts for all persisted drops.
 ]]
 function DropService.LoadSavedDrops(worldName: string, worldData: table)
+	local tileSize = WorldConfig.TILE_SIZE or 4
 	if not worldData.drops or #worldData.drops == 0 then
 		return
 	end
 
-	local folder = getWorldDropFolder(worldName)
-
 	for _, entry in ipairs(worldData.drops) do
-		local restingPosition = Vector3.new(
-			entry.tileX * WorldConfig.TILE_SIZE_STUDS + (entry.xOffset or 0),
-			-entry.surfaceY * WorldConfig.TILE_SIZE_STUDS,
-			0
-		)
-
-		local part = Instance.new("Part")
-		part.Name = `Drop_{entry.itemId}`
-		part.Size = Vector3.new(1, 1, 0.2)
-		part.CFrame = CFrame.new(restingPosition)
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanQuery = true
-		part.CanTouch = false
-		part.Transparency = 1
-
-		PhysicsService:SetPartCollisionGroup(part, "Drops")
-
-		local itemIdValue = Instance.new("IntValue")
-		itemIdValue.Name = "DropItemId"
-		itemIdValue.Value = entry.itemId
-		itemIdValue.Parent = part
-
-		local countValue = Instance.new("IntValue")
-		countValue.Name = "DropCount"
-		countValue.Value = entry.count
-		countValue.Parent = part
-
-		local idValue = Instance.new("IntValue")
-		idValue.Name = "DropId"
-		idValue.Value = entry.id
-		idValue.Parent = part
-
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "DropSprite"
-		billboard.Size = UDim2.new(0, 28, 0, 28)     -- 28x28 pixels (small icon)
-		billboard.StudsOffset = Vector3.new(0, 1.2, 0) -- float above the tile
-		billboard.AlwaysOnTop = true
-		billboard.Parent = part
-
-		local image = Instance.new("ImageLabel")
-		image.Name = "ItemIcon"
-		image.Size = UDim2.new(1, 0, 1, 0)
-		image.ResampleMode = Enum.ResamplerMode.Pixelated
-		image.Image = ""
-
-		-- Use item color so the drop is visible even without a texture
-		local itemDef = ItemDatabase.GetItem(entry.itemId) or ItemDatabase.GetSeed(entry.itemId)
-		if itemDef then
-			image.BackgroundColor3 = itemDef.color
-			image.BackgroundTransparency = 0
-		else
-			image.BackgroundTransparency = 1
-		end
-
-		image.Parent = billboard
-
-		part.Parent = folder
+		entry.worldName = entry.worldName or string.upper(worldName)
+		createDropPart(entry)
 	end
 
 	print(`[DropService] Respawned {#worldData.drops} saved drops for "{worldName}"`)
 end
 
 --[[
-	Handle a client's request to pick up a physical drop.
-
-	Validates:
-	1. The drop Part still exists and is a valid drop
-	2. The player's character is within PICKUP_RADIUS studs of the drop
-	3. The drop has valid itemId/count IntValues
-
-	On success: destroys the Part, removes from worldData.drops by ID,
-	adds items to player inventory, fires InventoryUpdated to the player.
-
-	@param player: Player — the player requesting pickup
-	@param dropPart: Instance — the drop Part to pick up
+	Handle pickup request. Client sends dropId (number), NOT a Part reference.
 ]]
-local function onRequestPickupDrop(player: Player, dropPart: Instance)
-	-- DEBUG: Trace entry
-	print(`[DropService] onRequestPickupDrop called by {player.Name} for {dropPart}`)
+local function onRequestPickupDrop(player: Player, dropId: number)
+	print(`[DropService] Pickup request: {player.Name} wants dropId={dropId}`)
 
-	-- 1. Validate player
+	-- Validate player
 	if not player or not player.UserId then
-		warn("[DropService] REJECTED: invalid player")
-		return
-	end
-	print(`[DropService] DEBUG player={player.Name} userId={player.UserId}`)
-
-	-- 2. Validate the drop Part still exists and is in a Drops_* folder
-	if not dropPart or not dropPart.Parent then
-		warn(`[DropService] REJECTED: dropPart already destroyed or has no parent`)
+		print("[DropService] Pickup REJECTED: invalid player")
 		return
 	end
 
-	local parentFolder = dropPart.Parent
-	local folderName = parentFolder.Name
-	print(`[DropService] DEBUG folderName="{folderName}"`)
-	if not string.match(folderName, "^Drops_") then
-		warn(`[DropService] REJECTED: not in a Drops_* folder (got "{folderName}")`)
+	-- Validate dropId
+	if type(dropId) ~= "number" or dropId <= 0 then
+		print(`[DropService] Pickup REJECTED: invalid dropId={dropId}`)
 		return
 	end
 
-	-- Parse world name from folder name ("Drops_MAIN" -> "MAIN")
-	local worldName = string.sub(folderName, 7)
-	print(`[DropService] DEBUG parsed worldName="{worldName}"`)
-
-	-- 3. Read item data from IntValues
-	local itemIdValue = dropPart:FindFirstChild("DropItemId")
-	local countValue = dropPart:FindFirstChild("DropCount")
-	local idValue = dropPart:FindFirstChild("DropId")
-	if not itemIdValue or not countValue or not idValue then
-		warn(`[DropService] REJECTED: Drop Part missing IntValues (itemId={itemIdValue}, count={countValue}, id={idValue})`)
+	-- Find the drop in worldData.drops
+	local playerWorld = PlayerManager.GetPlayerWorld(player)
+	if not playerWorld then
+		print("[DropService] Pickup REJECTED: player not in any world")
 		return
 	end
+	playerWorld = string.upper(playerWorld)
 
-	local itemId = itemIdValue.Value
-	local count = countValue.Value
-	local dropId = idValue.Value
-	print(`[DropService] DEBUG itemId={itemId} count={count} dropId={dropId}`)
-	if itemId <= 0 or count <= 0 then
-		warn(`[DropService] REJECTED: invalid itemId={itemId} count={count}`)
-		return
-	end
-
-	-- 4. Validate distance: player's character must be within PICKUP_RADIUS studs
-	local character = player.Character
-	if not character then
-		warn(`[DropService] REJECTED: player has no character`)
-		return
-	end
-
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then
-		warn(`[DropService] REJECTED: character has no HumanoidRootPart`)
-		return
-	end
-
-	local distance = (humanoidRootPart.Position - dropPart.Position).Magnitude
-	print(`[DropService] DEBUG distance={distance} (max {PICKUP_RADIUS})`)
-	if distance > PICKUP_RADIUS then
-		warn(`[DropService] REJECTED: {player.Name} too far ({distance} > {PICKUP_RADIUS})`)
-		return
-	end
-
-	-- 5. Destroy the drop Part (prevent double-pickup)
-	print(`[DropService] PICKUP SUCCESS — destroying drop {dropPart.Name} (dropId={dropId})`)
-	dropPart:Destroy()
-
-	-- 6. Remove the drop from worldData.drops (if the world is still loaded)
+	-- Find the drop entry
 	local WorldService = require(script.Parent.WorldService)
-	local worldData = WorldService.GetCachedWorld(worldName)
-	if worldData and worldData.drops then
-		for i, entry in ipairs(worldData.drops) do
-			if entry.id == dropId then
-				table.remove(worldData.drops, i)
-				print(`[DropService] Removed dropId={dropId} from worldData.drops[{i}]`)
-				break
+	local worldData = WorldService.GetCachedWorld(playerWorld)
+	if not worldData or not worldData.drops then
+		print(`[DropService] Pickup REJECTED: no drops data for world "{playerWorld}"`)
+		return
+	end
+
+	local dropEntry = nil
+	local dropIndex = nil
+	for i, entry in ipairs(worldData.drops) do
+		if entry.id == dropId then
+			dropEntry = entry
+			dropIndex = i
+			break
+		end
+	end
+
+	if not dropEntry then
+		print(`[DropService] Pickup REJECTED: dropId={dropId} not found in worldData.drops[{playerWorld}]`)
+		return
+	end
+
+	-- Validate world match
+	if string.upper(dropEntry.worldName or "") ~= playerWorld then
+		print(`[DropService] Pickup REJECTED: drop world "{dropEntry.worldName}" != player world "{playerWorld}"`)
+		return
+	end
+
+	-- Validate distance (best-effort)
+	local character = player.Character
+	if character then
+		local hrp = character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			local tileSize = WorldConfig.TILE_SIZE or 4
+			local dropPosX = dropEntry.tileX * tileSize + (dropEntry.xOffset or 0)
+			local dropPosY = -dropEntry.tileY * tileSize
+			local distance = math.sqrt((hrp.Position.X - dropPosX)^2 + (hrp.Position.Y - dropPosY)^2)
+			print(`[DropService] Distance check: {math.floor(distance)} studs (threshold {PICKUP_RADIUS})`)
+			if distance > PICKUP_RADIUS then
+				print(`[DropService] Pickup REJECTED: too far ({math.floor(distance)} > {PICKUP_RADIUS})`)
+				return
 			end
 		end
-	else
-		warn(`[DropService] Could not find worldData for "{worldName}" to remove dropId={dropId}`)
 	end
 
-	-- 7. Add items to player inventory
-	local success = PlayerManager.AddItem(player, itemId, count)
-	if not success then
-		warn(`[DropService] Failed to add item {itemId} x{count} to {player.Name}'s inventory (full?)`)
-	else
-		print(`[DropService] Added item {itemId} x{count} to {player.Name}`)
+	-- Remove from source of truth
+	table.remove(worldData.drops, dropIndex)
+	worldData.updatedAt = os.time()
+	print(`[DropService] Removed drop #{dropEntry.id} from worldData.drops`)
+
+	-- Destroy visual Part
+	local folderName = "Drops_" .. playerWorld
+	local folder = Workspace:FindFirstChild(folderName)
+	if folder then
+		for _, child in ipairs(folder:GetChildren()) do
+			if child:IsA("BasePart") then
+				local idValue = child:FindFirstChild("DropId")
+				if idValue and idValue:IsA("IntValue") and idValue.Value == dropId then
+					child:Destroy()
+					print(`[DropService] Destroyed visual Part for drop #{dropId}`)
+					break
+				end
+			end
+		end
 	end
 
-	-- 8. Send updated inventory to the player
+	-- Broadcast destruction to all players in world
+	PlayerManager.BroadcastToWorld(playerWorld, "DropDestroyed", dropId)
+
+	-- Add items to player inventory
+	local success = PlayerManager.AddItem(player, dropEntry.itemId, dropEntry.count)
+	if success then
+		print(`[DropService] Added {dropEntry.itemId}x{dropEntry.count} to {player.Name}`)
+	else
+		print(`[DropService] Inventory full — {player.Name} could not take {dropEntry.itemId}x{dropEntry.count}`)
+	end
+
+	-- Send updated inventory
 	local InventoryService = require(script.Parent.InventoryService)
 	PlayerManager.FireToPlayer(player, "InventoryUpdated", InventoryService.GetInventory(player))
-	print(`[DropService] Sent InventoryUpdated to {player.Name}`)
 end
 
 --[[
-	Initialize DropService: wire up the RequestPickupDrop listener.
+	Clear all drops for a world (server-side + visual Parts).
+	Called when the world is fully unloaded.
+]]
+function DropService.ClearWorldDrops(worldName: string)
+	local upperName = string.upper(worldName)
+	print(`[DropService] Clearing all drops for world "{upperName}"`)
+
+	local folderName = "Drops_" .. upperName
+	local folder = Workspace:FindFirstChild(folderName)
+	if folder then
+		local count = 0
+		for _, child in ipairs(folder:GetChildren()) do
+			if child:IsA("BasePart") then
+				child:Destroy()
+				count += 1
+			end
+		end
+		folder:Destroy()
+		print(`[DropService] Destroyed {count} visual drop Parts for "{upperName}"`)
+	end
+
+	-- Also clear from worldData.drops
+	local WorldService = require(script.Parent.WorldService)
+	local worldData = WorldService.GetCachedWorld(upperName)
+	if worldData and worldData.drops then
+		local count = #worldData.drops
+		worldData.drops = {}
+		print(`[DropService] Cleared {count} entries from worldData.drops[{upperName}]`)
+	end
+end
+
+--[[
+	Initialize DropService.
 ]]
 function DropService.Init()
+	-- Client → Server: pickup by dropId number
 	RemoteEvents.RequestPickupDrop.OnServerEvent:Connect(onRequestPickupDrop)
-	print("[DropService] Initialized")
+	print("[DropService] Initialized (dropId-based pickup)")
 end
 
 return DropService

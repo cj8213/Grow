@@ -144,26 +144,12 @@ function DevTools.HandleCommand(player: Player, cmd: string, args: { string }): 
 			return true
 		end
 
-		-- Send small lock data to the client for overlay rendering
-		local lockZones = {}
-		if wd.smallLocks then
-			for _, sl in ipairs(wd.smallLocks) do
-				table.insert(lockZones, {
-					x = sl.x,
-					y = sl.y,
-					width = sl.width,
-					height = sl.height,
-					owner = sl.owner,
-				})
-			end
-		end
-
-		-- Also send world lock info
-		local worldLocked = wd.lockOwner ~= nil
-		PlayerManager.FireToPlayer(player, "ShowLockZones", worldLocked, wd.lockOwner, lockZones)
+		-- Send lock zone data to client using new dynamic lock system
+		local lockData = LockService.BuildLockZonesData(wd)
+		PlayerManager.FireToPlayer(player, "LockZonesUpdated", lockData)
 		PlayerManager.FireToPlayer(player, "ChatMessage", "DevTools",
-			`Showing {#lockZones} small lock zone(s)`, Color3.fromRGB(200, 255, 200))
-		print(`[DevTools] Sent {#lockZones} small lock zones to {player.Name} in "{worldName}"`)
+			`Showing {#lockData.smallLocks} small lock zone(s)`, Color3.fromRGB(200, 255, 200))
+		print(`[DevTools] Sent {#lockData.smallLocks} small lock zones to {player.Name} in "{worldName}"`)
 		return true
 	end
 
@@ -194,27 +180,40 @@ function DevTools.TestCanModify()
 	local mockAdmin = { UserId = 1002, Name = "Admin" } :: Player
 	local mockOther = { UserId = 1003, Name = "Other" } :: Player
 
-	-- Locked world with a small lock covering the test tile
+	-- Locked world with a small lock covering the test tile (new dynamic system)
 	local lockedWorld = {
-		lockOwner = 1001, -- mockOwner.UserId
-		admins = { 1002 }, -- mockAdmin.UserId
-		smallLocks = {
-			{
-				x = 0,
-				y = 0,
-				width = 10,
-				height = 10,
-				owner = 1001, -- only the owner has access
-				admins = {},
-			},
-		},
+		lockOwner = 1001,
+		admins = { 1002 },
+		lockClaims = {},
+		lockRegistry = {},
+		nextLockId = 1,
 	}
+
+	-- Place a small lock centered at (5,5) with radius 5 → covers tiles 0..10, 0..10
+	local lockId = "SL_test_1"
+	lockedWorld.lockRegistry[lockId] = {
+		owner = 1001,
+		admins = {},
+		centerX = 5,
+		centerY = 5,
+		radius = 5,
+	}
+	for dx = -5, 5 do
+		for dy = -5, 5 do
+			local tx = 5 + dx
+			local ty = 5 + dy
+			local index = tx + ty * 100
+			lockedWorld.lockClaims[index] = lockId
+		end
+	end
 
 	-- Unlocked world with no small locks
 	local unlockedWorld = {
 		lockOwner = nil,
 		admins = {},
-		smallLocks = {},
+		lockClaims = {},
+		lockRegistry = {},
+		nextLockId = 1,
 	}
 
 	-- Test 1: World owner can modify locked world

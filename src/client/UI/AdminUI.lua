@@ -172,7 +172,12 @@ function AdminUI.Init()
 
 	addButton(scroll, "  Clear Inventory", function() fireAdminAction("clear") end)
 	addButton(scroll, "  Remove ALL Locks (World + Small)", function() fireAdminAction("removelocks") end)
+	addButton(scroll, "  Clear All Drops", function() fireAdminAction("cleardrops") end)
 	addButton(scroll, "  Show Lock Zones", function() fireAdminAction("showlocks") end)
+	addButton(scroll, "  🚀 TRAVEL", function()
+		local WorldEntryUI = require(script.Parent.Parent.UI.WorldEntryUI)
+		WorldEntryUI.Toggle()
+	end)
 
 	-- Keybind: `;` toggles the panel
 	UserInputService.InputBegan:Connect(function(input, isProcessed)

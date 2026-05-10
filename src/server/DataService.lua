@@ -28,16 +28,18 @@ local DataService = {}
 ]]
 
 --[[
-	Save a player's data (gems + inventory) to DataStore via ProfileStore.
+	Save a player's data (gems + inventory + lastWorld) to DataStore via ProfileStore.
 	Called on PlayerRemoving and by auto-save loop.
 	@param player: Player
+	@param lastWorld: string? — optional override for last world (defaults to current world)
 	@return boolean — true if saved successfully
 ]]
-function DataService.SavePlayerData(player: Player): boolean
+function DataService.SavePlayerData(player: Player, lastWorld: string?): boolean
 	local userId = player.UserId
 	local gems = GemService.GetPlayerDataForSave(userId)
 	local inventory = InventoryService.GetPlayerDataForSave(userId)
-	return ProfileStore.SavePlayerProfile(userId, gems, inventory)
+	local worldName = lastWorld or "START"
+	return ProfileStore.SavePlayerProfile(userId, gems, inventory, worldName)
 end
 
 --[[
@@ -45,9 +47,9 @@ end
 	Called on PlayerAdded.
 	Returns nil if no data exists (new player).
 	@param userId: number
-	@return { gems: number, inventory: { { itemId: number, count: number }? }? }?
+	@return { gems: number, inventory: { { itemId: number, count: number }? }?, lastWorld: string }?
 ]]
-function DataService.LoadPlayerData(userId: number): { gems: number, inventory: { { itemId: number, count: number }? }? }?
+function DataService.LoadPlayerData(userId: number): { gems: number, inventory: { { itemId: number, count: number }? }?, lastWorld: string }?
 	return ProfileStore.LoadPlayerProfile(userId)
 end
 
@@ -74,6 +76,16 @@ end
 ]]
 function DataService.LoadWorldData(worldName: string): table?
 	return ProfileStore.LoadWorld(worldName)
+end
+
+--[[
+	Check if a world has saved data in DataStore.
+	@param worldName: string
+	@return boolean
+]]
+function DataService.WorldExists(worldName: string): boolean
+	local data = ProfileStore.LoadWorld(worldName)
+	return data ~= nil
 end
 
 --[[

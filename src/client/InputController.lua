@@ -87,7 +87,10 @@ local armStretchPart: Part? = nil
 
 -- Drop pickup state (instant proximity — no magnet)
 local PICKUP_DISTANCE = 6         -- studs — must be this close to pick up
-local pendingPickups: { [Instance]: boolean } = {}  -- debounce: prevents 60fps re-fires for same drop
+local pendingPickups: { [number]: boolean } = {}  -- debounce by dropId (number), not Part reference
+
+-- Current world name (updated from PlayerSpawned) — only scan Drops_ folder matching this world
+local currentWorldName: string = "START"
 
 --[[
 	===== HELPERS =====
@@ -730,9 +733,16 @@ function InputController.Init()
 -- Listen for inventory updates from server
 RemoteEvents.InventoryUpdated.OnClientEvent:Connect(onInventoryUpdated)
 
+-- Listen for WorldLoaded — clear pendingPickups so drops in the new world can be picked up
+RemoteEvents.WorldLoaded.OnClientEvent:Connect(function(worldName: string)
+	pendingPickups = {}
+	print(`[InputController] Cleared pendingPickups for world change to "{worldName}"`)
+end)
+
 -- Listen for PlayerSpawned (server tells us where to spawn the character)
 RemoteEvents.PlayerSpawned.OnClientEvent:Connect(function(tileX: number, tileY: number, worldName: string)
 	print(`[InputController] PlayerSpawned at tile ({tileX}, {tileY}) in "{worldName}"`)
+	currentWorldName = worldName
 
 	-- Absolute spawn math:
 	-- Tile (tileX, tileY) center = (tileX * TILE_SIZE, -tileY * TILE_SIZE, 0)
@@ -770,44 +780,39 @@ end)
 		updateArmStretch()
 		checkDoorCollision()
 
-		-- Instant pickup: scan all world-scoped drop folders (Drops_*)
-		-- No magnet tween — player must walk exactly over the drop (within 6 studs)
-		local dropFoldersFound = 0
+		-- Instant pickup: only scan the Drops_ folder matching the player's current world.
 		if humanoidRootPart and humanoidRootPart.Parent then
-			for _, folder in ipairs(Workspace:GetChildren()) do
-				if folder:IsA("Folder") and string.match(folder.Name, "^Drops_") then
-					dropFoldersFound += 1
-					for _, dropPart in ipairs(folder:GetChildren()) do
-						if not dropPart:IsA("BasePart") then
-							continue
-						end
+			local expectedFolderName = "Drops_" .. currentWorldName
+			local folder = Workspace:FindFirstChild(expectedFolderName)
+			if folder and folder:IsA("Folder") then
+				for _, dropPart in ipairs(folder:GetChildren()) do
+					if not dropPart:IsA("BasePart") then
+						continue
+					end
 
-						-- Debounce: skip if we already sent a pickup request for this drop
-						if pendingPickups[dropPart] then
-							continue
-						end
+					-- Read dropId from IntValue
+					local idValue = dropPart:FindFirstChild("DropId")
+					if not idValue or not idValue:IsA("IntValue") then
+						continue
+					end
+					local dropId = idValue.Value
 
-						local distance = (humanoidRootPart.Position - dropPart.Position).Magnitude
-						if distance <= PICKUP_DISTANCE then
-							pendingPickups[dropPart] = true
-							RemoteEvents.RequestPickupDrop:FireServer(dropPart)
-							print(`[InputController] Requested pickup of {dropPart.Name} ({distance} studs)`)
-						end
+					-- Debounce by dropId
+					if pendingPickups[dropId] then
+						continue
+					end
+
+					local distance = (humanoidRootPart.Position - dropPart.Position).Magnitude
+					if distance <= PICKUP_DISTANCE then
+						pendingPickups[dropId] = true
+						RemoteEvents.RequestPickupDrop:FireServer(dropId)
+						print(`[InputController] Pickup: dropId={dropId} ({math.floor(distance * 10) / 10} studs) world="{currentWorldName}"`)
 					end
 				end
 			end
 		end
-		-- DEBUG: Log drop folder scan once every ~60 frames
-		if dropFoldersFound > 0 and tick() % 1 < 0.02 then
-			print(`[InputController] Scanning {dropFoldersFound} drop folder(s)`)
-		end
 
-		-- Clean up stale pendingPickups entries (drops destroyed after pickup)
-		for dropPart, _ in pairs(pendingPickups) do
-			if not dropPart.Parent then
-				pendingPickups[dropPart] = nil
-			end
-		end
+		-- Clean up stale pendingPickups entries (drops destroyed after pickup — DropDestroyed fires from server)
 
 		-- Ensure we have a valid humanoidRootPart reference
 		-- (character may have loaded after Init, or been re-created after falling)
@@ -841,6 +846,15 @@ end)
 			worldRenderer.SetCameraCenter(px, py)
 		end
 	end)
+
+	-- Apply pending world travel from cross-server teleport
+	if _G.pendingWorldTravel then
+		local targetWorld = _G.pendingWorldTravel
+		print(`[InputController] Applying pending world travel: {targetWorld}`)
+		task.wait(2)
+		RemoteEvents.RequestTravelWorld:FireServer(targetWorld)
+		_G.pendingWorldTravel = nil
+	end
 
 	print("[InputController] Initialized — raycast-based input")
 end

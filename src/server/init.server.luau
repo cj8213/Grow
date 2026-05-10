@@ -11,8 +11,9 @@
 --   6. DataService.WirePlayerEvents() — loads data on join (BEFORE PlayerManager)
 --   7. PlayerManager.Init()        — wires PlayerAdded/PlayerRemoving
 --   8. NetworkHandler.Init()      — wires all client→server events
---   9. SeedService.StartGrowthLoop() — background growth (every 10s)
---  10. DataService.StartAutoSave()    — background auto-save (every 60s)
+--   9. WorldRegistry.Init()        — cross-server world tracking & heartbeat
+--  10. SeedService.StartGrowthLoop() — background growth (every 10s)
+--  11. DataService.StartAutoSave()    — background auto-save (every 60s)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -34,6 +35,7 @@ local PlayerManager = require(script.PlayerManager)
 local NetworkHandler = require(script.NetworkHandler)
 local StoreService = require(script.StoreService)
 local DevTools = require(script.DevTools)
+local WorldRegistry = require(script.WorldRegistry)
 
 print("=== GrowRoblox Server Starting ===")
 
@@ -122,12 +124,18 @@ NetworkHandler.Init()
 DevTools.Init()
 
 -- ============================================================
--- STEP 9: Background growth loop (every 10 seconds)
+-- STEP 9: WorldRegistry — cross-server world tracking
+-- Starts heartbeat loop and binds shutdown cleanup.
+-- ============================================================
+WorldRegistry.Init()
+
+-- ============================================================
+-- STEP 10: Background growth loop (every 10 seconds)
 -- ============================================================
 SeedService.StartGrowthLoop()
 
 -- ============================================================
--- STEP 10: Background auto-save (every 60 seconds)
+-- STEP 11: Background auto-save (every 60 seconds)
 -- ============================================================
 DataService.StartAutoSave()
 
@@ -144,7 +152,18 @@ end)
 -- ============================================================
 game:BindToClose(function()
 	print("=== Shutting down GrowRoblox server ===")
+	WorldRegistry.CleanupServer()
 	WorldService.SaveAll()
+	ProfileStore.SaveAllWorlds()
+	for _, player in ipairs(Players:GetPlayers()) do
+		local currentWorld = PlayerManager.GetPlayerWorld(player)
+		ProfileStore.SavePlayerProfile(
+			player.UserId,
+			GemService.GetGems(player),
+			InventoryService.GetInventory(player),
+			currentWorld or "START"
+		)
+	end
 end)
 
 print("=== GrowRoblox Server Ready! ===")

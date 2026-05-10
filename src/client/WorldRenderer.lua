@@ -545,10 +545,12 @@ function WorldRenderer.Init()
     end)
     table.insert(connections, growthConn)
 
-    -- Dev tool: show lock zone overlays
+    -- Lock zone visualization: ALWAYS rendered from LockZonesUpdated data
+    -- Shows per-tile claimed areas as semi-transparent overlays.
+    -- No dev tools needed — this fires automatically on world enter and lock changes.
     local lockZoneFolder: Folder? = nil
-    local lockConn = RemoteEvents.ShowLockZones.OnClientEvent:Connect(function(worldLocked: boolean, lockOwner: number?, smallLockZones: { { x: number, y: number, width: number, height: number, owner: number } })
-        -- Clear existing lock zone overlays
+
+    local function renderLockZones(lockData: table)
         if lockZoneFolder then
             lockZoneFolder:Destroy()
             lockZoneFolder = nil
@@ -556,13 +558,12 @@ function WorldRenderer.Init()
 
         local TILE_SIZE = 4
 
-        -- Create folder for lock zone visuals
         lockZoneFolder = Instance.new("Folder")
         lockZoneFolder.Name = "LockZoneOverlays"
         lockZoneFolder.Parent = workspace
 
-        -- Show world lock indicator at the top of the world
-        if worldLocked then
+        -- World lock indicator
+        if lockData.worldLocked then
             local worldLockPart = Instance.new("Part")
             worldLockPart.Name = "WorldLockIndicator"
             worldLockPart.Size = Vector3.new(WORLD_WIDTH * TILE_SIZE, 1, TILE_SIZE * 3)
@@ -571,59 +572,91 @@ function WorldRenderer.Init()
             worldLockPart.CanCollide = false
             worldLockPart.CanQuery = false
             worldLockPart.CastShadow = false
-            worldLockPart.BrickColor = BrickColor.new(Color3.fromRGB(255, 215, 0)) -- Gold
+            worldLockPart.BrickColor = BrickColor.new(Color3.fromRGB(255, 215, 0))
             worldLockPart.Material = Enum.Material.ForceField
             worldLockPart.Transparency = 0.5
             worldLockPart.Parent = lockZoneFolder
         end
 
-        -- Draw each small lock zone as a semi-transparent box outline
-        for _, zone in ipairs(smallLockZones) do
-            local zoneWidth = zone.width * TILE_SIZE
-            local zoneHeight = zone.height * TILE_SIZE
-            local centerX = (zone.x + zone.width / 2) * TILE_SIZE - TILE_SIZE / 2
-            local centerY = -(zone.y + zone.height / 2) * TILE_SIZE + TILE_SIZE / 2
+        -- Draw each small lock zone as an outline only (edge tiles of the bounding box)
+        if lockData.smallLocks then
+            for _, zone in ipairs(lockData.smallLocks) do
+                -- Color: bright vivid colors
+                local outlineColor = Color3.fromRGB(50, 130, 255)   -- bright blue
+                if zone.owner and zone.owner == localPlayer.UserId then
+                    outlineColor = Color3.fromRGB(50, 255, 80)       -- bright green
+                end
 
-            -- Colored fill box
-            local fillPart = Instance.new("Part")
-            fillPart.Name = `SmallLock_{zone.x}_{zone.y}`
-            fillPart.Size = Vector3.new(zoneWidth, zoneHeight, 0.5)
-            fillPart.Position = Vector3.new(centerX, centerY, 0)
-            fillPart.Anchored = true
-            fillPart.CanCollide = false
-            fillPart.CanQuery = false
-            fillPart.CastShadow = false
-            fillPart.BrickColor = BrickColor.new(Color3.fromRGB(100, 100, 255))
-            fillPart.Material = Enum.Material.ForceField
-            fillPart.Transparency = 0.7
-            fillPart.Parent = lockZoneFolder
+                if zone.claimedTiles and #zone.claimedTiles > 0 then
+                    -- Build a set of claimed tile indices for O(1) edge detection
+                    local claimSet: { [number]: boolean } = {}
+                    local minX, maxX, minY, maxY = 9999, -1, 9999, -1
+                    for _, idx in ipairs(zone.claimedTiles) do
+                        claimSet[idx] = true
+                        local tx = idx % WORLD_WIDTH
+                        local ty = math.floor(idx / WORLD_WIDTH)
+                        if tx < minX then minX = tx end
+                        if tx > maxX then maxX = tx end
+                        if ty < minY then minY = ty end
+                        if ty > maxY then maxY = ty end
+                    end
 
-            -- Border frame (4 thin parts)
-            local function makeBorder(name, size, pos)
-                local b = Instance.new("Part")
-                b.Name = name
-                b.Size = size
-                b.Position = pos
-                b.Anchored = true
-                b.CanCollide = false
-                b.CanQuery = false
-                b.CastShadow = false
-                b.BrickColor = BrickColor.new(Color3.fromRGB(100, 100, 255))
-                b.Transparency = 0.3
-                b.Parent = lockZoneFolder
-                return b
+                    -- Only render tiles that are on the outermost edge of the claimed area.
+                    -- A tile is an "edge" if any of its 4 neighbors is NOT in the claim set
+                    -- (or is outside world bounds).
+                    local neighborChecks = { {0, 1}, {0, -1}, {1, 0}, {-1, 0} }
+                    for _, idx in ipairs(zone.claimedTiles) do
+                        local tx = idx % WORLD_WIDTH
+                        local ty = math.floor(idx / WORLD_WIDTH)
+
+                        -- Check if this tile is on the edge
+                        local isEdge = false
+                        for _, check in ipairs(neighborChecks) do
+                            local nx = tx + check[1]
+                            local ny = ty + check[2]
+                            if nx < 0 or nx >= WORLD_WIDTH or ny < 0 or ny >= WORLD_HEIGHT then
+                                isEdge = true  -- edge of world = edge of zone
+                            else
+                                local nidx = nx + ny * WORLD_WIDTH
+                                if not claimSet[nidx] then
+                                    isEdge = true  -- unclaimed neighbor = edge of zone
+                                end
+                            end
+                            if isEdge then break end
+                        end
+
+                        if isEdge then
+                            local tilePos = Vector3.new(tx * TILE_SIZE, -ty * TILE_SIZE, 0)
+
+                            -- Outline Part: thin strip on this edge tile
+                            local outline = Instance.new("Part")
+                            outline.Name = `LockOutline_{zone.lockId}_{tx}_{ty}`
+                            outline.Size = Vector3.new(TILE_SIZE - 0.1, TILE_SIZE - 0.1, 1)
+                            outline.Position = tilePos
+                            outline.Anchored = true
+                            outline.CanCollide = false
+                            outline.CanQuery = false
+                            outline.CastShadow = false
+                            outline.BrickColor = BrickColor.new(outlineColor)
+                            outline.Material = Enum.Material.SmoothPlastic
+                            outline.Transparency = 0.3
+                            outline.Parent = lockZoneFolder
+                        end
+                    end
+                end
             end
-
-            local borderThick = 0.3
-            makeBorder("Border_Top", Vector3.new(zoneWidth + borderThick * 2, borderThick, 0.5), Vector3.new(centerX, centerY + zoneHeight / 2, 0))
-            makeBorder("Border_Bottom", Vector3.new(zoneWidth + borderThick * 2, borderThick, 0.5), Vector3.new(centerX, centerY - zoneHeight / 2, 0))
-            makeBorder("Border_Left", Vector3.new(borderThick, zoneHeight, 0.5), Vector3.new(centerX - zoneWidth / 2, centerY, 0))
-            makeBorder("Border_Right", Vector3.new(borderThick, zoneHeight, 0.5), Vector3.new(centerX + zoneWidth / 2, centerY, 0))
         end
+    end
 
-        if #smallLockZones > 0 then
-            print(`[WorldRenderer] Showing {#smallLockZones} small lock zone overlay(s)`)
-        end
+    -- Listen for LockZonesUpdated (fires on world enter + lock place/break)
+    local lockZonesConn = RemoteEvents.LockZonesUpdated.OnClientEvent:Connect(function(lockData: table)
+        renderLockZones(lockData)
+    end)
+    table.insert(connections, lockZonesConn)
+
+    -- Backward compat with old ShowLockZones (dev tools)
+    local lockConn = RemoteEvents.ShowLockZones.OnClientEvent:Connect(function()
+        -- Deprecated
     end)
     table.insert(connections, lockConn)
 

@@ -93,9 +93,9 @@ end
 	Automatically retries on failure.
 
 	@param userId: number — the player's UserId
-	@return { gems: number, inventory: { { itemId: number, count: number }? }? }?
+	@return { gems: number, inventory: { { itemId: number, count: number }? }?, lastWorld: string }?
 ]]
-function ProfileStore.LoadPlayerProfile(userId: number): { gems: number, inventory: { { itemId: number, count: number }? }? }?
+function ProfileStore.LoadPlayerProfile(userId: number): { gems: number, inventory: { { itemId: number, count: number }? }?, lastWorld: string }?
 	local store = getPlayerDataStore()
 	if not store then return nil end
 
@@ -113,6 +113,7 @@ function ProfileStore.LoadPlayerProfile(userId: number): { gems: number, invento
 			return {
 				gems = result.gems or 0,
 				inventory = result.inventory or {},
+				lastWorld = result.lastWorld or "START",
 			}
 		else
 			print(`[ProfileStore] No saved data for userId={userId}, using defaults`)
@@ -132,9 +133,10 @@ end
 	@param userId: number
 	@param gems: number
 	@param inventory: { { itemId: number, count: number }? }?
+	@param lastWorld: string? — last world the player was in
 	@return boolean — true if saved successfully
 ]]
-function ProfileStore.SavePlayerProfile(userId: number, gems: number, inventory: { { itemId: number, count: number }? }?): boolean
+function ProfileStore.SavePlayerProfile(userId: number, gems: number, inventory: { { itemId: number, count: number }? }?, lastWorld: string?): boolean
 	local store = getPlayerDataStore()
 	if not store then return false end
 
@@ -142,6 +144,7 @@ function ProfileStore.SavePlayerProfile(userId: number, gems: number, inventory:
 	local data = {
 		gems = gems,
 		inventory = inventory or {},
+		lastWorld = lastWorld or "START",
 	}
 
 	local success, err = withRetry(function()
@@ -153,7 +156,7 @@ function ProfileStore.SavePlayerProfile(userId: number, gems: number, inventory:
 	end)
 
 	if success then
-		print(`[ProfileStore] Saved player profile for userId={userId}`)
+		print(`[ProfileStore] Saved player profile for userId={userId} (lastWorld={data.lastWorld})`)
 		return true
 	else
 		warn(`[ProfileStore] Failed to save player profile for userId={userId}: {err}`)
@@ -189,10 +192,11 @@ end
 	@param userId: number
 	@param gems: number — current gems to save
 	@param inventory: { { itemId: number, count: number }? }? — current inventory to save
+	@param lastWorld: string? — last world the player was in
 	@return boolean — true if saved successfully
 ]]
-function ProfileStore.EndProfile(userId: number, gems: number, inventory: { { itemId: number, count: number }? }?): boolean
-	local success = ProfileStore.SavePlayerProfile(userId, gems, inventory)
+function ProfileStore.EndProfile(userId: number, gems: number, inventory: { { itemId: number, count: number }? }?, lastWorld: string?): boolean
+	local success = ProfileStore.SavePlayerProfile(userId, gems, inventory, lastWorld)
 	activePlayerProfiles[userId] = nil
 	return success
 end
@@ -206,7 +210,7 @@ end
 function ProfileStore.SaveAllActiveProfiles(): number
 	local count = 0
 	for userId, profile in pairs(activePlayerProfiles) do
-		local success = ProfileStore.SavePlayerProfile(userId, profile.gems, profile.inventory)
+		local success = ProfileStore.SavePlayerProfile(userId, profile.gems, profile.inventory, profile.lastWorld)
 		if success then
 			count += 1
 		end
@@ -336,6 +340,10 @@ function ProfileStore.SaveWorld(worldName: string, worldData: table): boolean
 		updatedAt = os.time(),
 		tiles = sparseTiles,
 		drops = worldData.drops or {},
+		-- Persist dynamic lock system data
+		lockClaims = worldData.lockClaims or {},
+		lockRegistry = worldData.lockRegistry or {},
+		nextLockId = worldData.nextLockId or 1,
 	}
 
 	local key = "world_" .. string.upper(worldName)

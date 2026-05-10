@@ -165,9 +165,21 @@ Remotes.RequestAddAdmin = GetOrCreateEvent("RequestAddAdmin")
 Remotes.RequestRemoveAdmin = GetOrCreateEvent("RequestRemoveAdmin")
 
 
--- Client → Server: Player requests to pick up a physical drop Part
--- Fires: (dropPart: Instance) — the server validates distance and destroys it
+-- Client → Server: Player requests to pick up a drop by its ID
+-- Fires: (dropId: number)
 Remotes.RequestPickupDrop = GetOrCreateEvent("RequestPickupDrop")
+
+-- Server → Client: A new drop has been spawned
+-- Fires: (dropEntry: table) — see DropService.SpawnDrop
+Remotes.DropSpawned = GetOrCreateEvent("DropSpawned")
+
+-- Server → Client: A drop has been destroyed (picked up or cleared)
+-- Fires: (dropId: number)
+Remotes.DropDestroyed = GetOrCreateEvent("DropDestroyed")
+
+-- Server → Client: All drops for a world (sent on world enter after WorldLoaded)
+-- Fires: (worldName: string, drops: table[])
+Remotes.WorldDropsLoaded = GetOrCreateEvent("WorldDropsLoaded")
 
 -- Server → Client: World data loaded, send full tile grid to player
 -- Format: (worldName: string, tileData: { { i: number, fg: number?, bg: number?, hp: number?, owner: number?, treeData: table? } },
@@ -222,13 +234,23 @@ Remotes.PlayerSpawned = GetOrCreateEvent("PlayerSpawned")
 -- Fires: (worldLocked: boolean, lockOwner: number?, smallLockZones: { { x, y, width, height, owner } })
 Remotes.ShowLockZones = GetOrCreateEvent("ShowLockZones")
 
+-- Server → Client: Lock zone data updated (always sent on world enter + on lock change)
+-- Format: table — see LockService.BuildLockZonesData()
+-- Always broadcast so the client can render per-tile lock overlays automatically.
+Remotes.LockZonesUpdated = GetOrCreateEvent("LockZonesUpdated")
+
 -- Client → Server: Admin panel action request
 -- Fires: (action: string, itemId: number?, count: number?)
 Remotes.RequestAdminAction = GetOrCreateEvent("RequestAdminAction")
 
--- Server → Client: Show lock zone overlays (dev tool)
--- Fires: (worldLocked: boolean, lockOwner: number?, smallLockZones: { { x, y, width, height, owner } })
-Remotes.ShowLockZones = GetOrCreateEvent("ShowLockZones")
+-- Client → Server: NPC interaction request (e.g. WAYFARER NPC)
+-- Fires: (npcType: string, data: table)
+Remotes.RequestNPCInteract = GetOrCreateEvent("RequestNPCInteract")
+
+-- Server → Client: NPC interaction result
+-- Fires: (npcType: string, data: table)
+Remotes.NPCInteractResult = GetOrCreateEvent("NPCInteractResult")
+
 
 --[[
 	===== REMOTE FUNCTIONS =====

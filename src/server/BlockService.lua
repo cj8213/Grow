@@ -9,12 +9,19 @@ local Players = game:GetService("Players")
 local WorldConfig = require(ReplicatedStorage.Shared.WorldConfig)
 local ItemDatabase = require(ReplicatedStorage.Shared.ItemDatabase)
 local LockService = require(script.Parent.LockService)
+local InventoryService = require(script.Parent.InventoryService)
 
 -- PlayerManager handles inventory operations (AddItem, RemoveItem, HasItem)
 local PlayerManager = require(script.Parent.PlayerManager)
 local DropService = require(script.Parent.DropService)
+local RemoteEvents = require(ReplicatedStorage.Shared.RemoteEvents)
 
 local BlockService = {}
+
+-- Helper: get safe world name for broadcasts (fallback to "UNKNOWN")
+local function safeWorldName(worldData: table): string
+	return if worldData and worldData.name and #worldData.name > 0 then worldData.name else "UNKNOWN"
+end
 
 --[[
 	Get the player's equipped tool damage.
@@ -156,6 +163,17 @@ function BlockService.BreakBlock(player: Player, worldData: table, tileX: number
 		return false, nil -- Cannot break indestructible blocks
 	end
 
+	-- 9. Enforce fist-only breaking: only the Fist (itemId 1000) can break blocks.
+	-- Other tools (Axe 1001, Wrench 1002, Scissors 1003, Shovel 1004) cannot.
+	-- Lock blocks (26, 27) are exempt since their break logic is handled specially.
+	if fgBlockId ~= 26 and fgBlockId ~= 27 then
+		local equippedItemId = InventoryService.GetEquippedItem(player)
+		if equippedItemId ~= 1000 then
+			-- Not using fist — block cannot be damaged by other tools
+			return false, nil
+		end
+	end
+
 	-- === DAMAGE CALCULATION ===
 
 	-- Get equipped tool damage
@@ -205,7 +223,9 @@ function BlockService.BreakBlock(player: Player, worldData: table, tileX: number
 		worldData.updatedAt = os.time()
 
 		-- Broadcast lock status change to all players in world
-		PlayerManager.BroadcastToWorld(worldData.name, "WorldLockStatus", false, nil)
+		PlayerManager.BroadcastToWorld(safeWorldName(worldData), "WorldLockStatus", false, nil)
+		-- Broadcast updated lock zone visualization
+		PlayerManager.BroadcastToWorld(safeWorldName(worldData), "LockZonesUpdated", LockService.BuildLockZonesData(worldData))
 		-- Send updated inventory to the breaker
 		local InventoryService = require(script.Parent.InventoryService)
 		PlayerManager.FireToPlayer(player, "InventoryUpdated", InventoryService.GetInventory(player))
@@ -214,21 +234,20 @@ function BlockService.BreakBlock(player: Player, worldData: table, tileX: number
 
 	-- === SPECIAL: Breaking a Small Lock (fg=27) removes the zone + returns the lock ===
 	if fgBlockId == 27 then
-		-- Find and remove the small lock zone at this tile position
-		if worldData.smallLocks then
-			local zoneIndex = nil
-			for i, sl in ipairs(worldData.smallLocks) do
-				if tileX >= sl.x and tileX < sl.x + sl.width
-					and tileY >= sl.y and tileY < sl.y + sl.height then
-					zoneIndex = i
-					break
-				end
-			end
-			if zoneIndex then
-				table.remove(worldData.smallLocks, zoneIndex)
-				print(`[BlockService] Small Lock zone removed by {player.Name} at ({tileX}, {tileY})`)
+		-- Use LockService to find which lock owns this tile and remove it
+		local lockId, lockData = LockService.GetLockAt(worldData, tileX, tileY)
+		local removalSuccess = false
+		if lockId then
+			-- Allow removal by the owner or a permanent admin
+			local ok, msg = LockService.RemoveSmallLock(player, worldData, lockId)
+			if ok then
+				removalSuccess = true
+				print(`[BlockService] Small lock "{lockId}" removed by {player.Name} at ({tileX}, {tileY})`)
+			else
+				warn(`[BlockService] Small lock removal failed for {player.Name}: {msg}`)
 			end
 		end
+
 		-- Return the lock item directly to inventory
 		PlayerManager.AddItem(player, 27, 1)
 		tile.fg = 0
@@ -237,6 +256,8 @@ function BlockService.BreakBlock(player: Player, worldData: table, tileX: number
 		worldData.updatedAt = os.time()
 		local InventoryService = require(script.Parent.InventoryService)
 		PlayerManager.FireToPlayer(player, "InventoryUpdated", InventoryService.GetInventory(player))
+		-- Broadcast updated lock visualization (zones cleared if removal succeeded)
+		PlayerManager.BroadcastToWorld(safeWorldName(worldData), "LockZonesUpdated", LockService.BuildLockZonesData(worldData))
 		return true, nil
 	end
 
@@ -253,9 +274,6 @@ function BlockService.BreakBlock(player: Player, worldData: table, tileX: number
 	worldData.updatedAt = os.time()
 
 	-- Spawn physical drops in the world using math-based gravity.
-	-- DropService.SpawnDrop scans worldData.tiles downward from the break point
-	-- to find the nearest solid surface, then places the drop anchored there.
-	-- No native physics needed — the server's Workspace has no physical tiles.
 	local dropTypeCount = 0
 	for _, _ in pairs(drops) do
 		dropTypeCount += 1
@@ -352,16 +370,11 @@ function BlockService.PlaceBlock(player: Player, worldData: table, tileX: number
 	end
 
 	-- 9. Prevent placing blocks on the player's own character/rig
-	-- The player's character occupies the tile at their position (HumanoidRootPart).
-	-- Placing a block here would clip into the character.
 	if tileX == playerTileX and tileY == playerTileY then
 		return false, "Cannot place a block on yourself"
 	end
 
 	-- 10. Prevent placing blocks in the spawn area
-	-- The spawn area is around the Main Door at center of world (X = WORLD_WIDTH/2).
-	-- Spawn zone: the 2 tiles directly above the spawn surface (Y=3 and Y=4) at the door X.
-	-- This prevents players from blocking the spawn point.
 	local doorX = math.floor(WorldConfig.WORLD_WIDTH / 2)
 	local surfaceY = 5
 	if tileX == doorX and (tileY == surfaceY - 1 or tileY == surfaceY - 2) then
@@ -378,11 +391,11 @@ function BlockService.PlaceBlock(player: Player, worldData: table, tileX: number
 		return false, "You don't have that item"
 	end
 
-	-- 13. Mutual exclusion: World Lock and Small Locks cannot coexist
+	-- 13. Handle lock items: World Lock and Small Locks
 	if itemDef.type == WorldConfig.ItemTypes.LOCK then
 		if itemId == 26 then -- World Lock (ID 26)
 			-- Cannot place World Lock if there are Small Locks in this world
-			if worldData.smallLocks and #worldData.smallLocks > 0 then
+			if LockService.HasSmallLocks(worldData) then
 				return false, "Remove all small locks first!"
 			end
 			local success, message = LockService.PlaceWorldLock(player, worldData)
@@ -395,6 +408,8 @@ function BlockService.PlaceBlock(player: Player, worldData: table, tileX: number
 			tile.bg = tile.bg or 0
 			PlayerManager.RemoveItem(player, itemId, 1)
 			worldData.updatedAt = os.time()
+			-- Broadcast lock zone update
+			PlayerManager.BroadcastToWorld(safeWorldName(worldData), "LockZonesUpdated", LockService.BuildLockZonesData(worldData))
 			print(`[BlockService] World Lock block placed at ({tileX}, {tileY}) by {player.Name}`)
 			return true, "World locked! Break the gold block to unlock."
 		elseif itemId == 27 then -- Small Lock (ID 27)
@@ -402,7 +417,7 @@ function BlockService.PlaceBlock(player: Player, worldData: table, tileX: number
 			if LockService.IsWorldLocked(worldData) then
 				return false, "World is locked — remove the world lock first!"
 			end
-			local success, message = LockService.PlaceSmallLock(player, worldData, tileX, tileY)
+			local success, message, claimedCount = LockService.PlaceSmallLock(player, worldData, tileX, tileY)
 			if not success then
 				return false, message
 			end
@@ -412,7 +427,9 @@ function BlockService.PlaceBlock(player: Player, worldData: table, tileX: number
 			tile.bg = tile.bg or 0
 			PlayerManager.RemoveItem(player, itemId, 1)
 			worldData.updatedAt = os.time()
-			print(`[BlockService] Small Lock block placed at ({tileX}, {tileY}) by {player.Name}`)
+			-- Broadcast lock zone update so clients see the new claimed tiles
+			PlayerManager.BroadcastToWorld(safeWorldName(worldData), "LockZonesUpdated", LockService.BuildLockZonesData(worldData))
+			print(`[BlockService] Small Lock block placed at ({tileX}, {tileY}) by {player.Name} — claimed {claimedCount} tiles`)
 			return true, "Small lock placed!"
 		end
 	end

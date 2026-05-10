@@ -307,10 +307,14 @@ function WorldService.LoadWorld(worldName: string): table
 		if savedWorldData.admins ~= nil then worldData.admins = savedWorldData.admins end
 		if savedWorldData.createdAt ~= nil then worldData.createdAt = savedWorldData.createdAt end
 		if savedWorldData.drops ~= nil then worldData.drops = savedWorldData.drops end
+		-- Restore dynamic lock system data
+		if savedWorldData.lockClaims ~= nil then worldData.lockClaims = savedWorldData.lockClaims end
+		if savedWorldData.lockRegistry ~= nil then worldData.lockRegistry = savedWorldData.lockRegistry end
+		if savedWorldData.nextLockId ~= nil then worldData.nextLockId = savedWorldData.nextLockId end
 
 		WorldService.LoadSavedWorld(worldData, savedWorldData.tiles)
 		local dropCount = if worldData.drops then #worldData.drops else 0
-		print(`[WorldService] Loaded "{normalized}" from DataStore ({#savedWorldData.tiles} saved tiles, {dropCount} saved drops)`)
+		print(`[WorldService] Loaded "{normalized}" from DataStore ({#savedWorldData.tiles} saved tiles, {dropCount} saved drops, {if worldData.lockRegistry then "locks" else "no locks"})`)
 	else
 		print(`[WorldService] Generated new world "{normalized}"`)
 	end
@@ -475,7 +479,16 @@ function WorldService.GetOrCreateWorld(worldName: string): table
 	end
 
 	-- Use LoadWorld which handles DataStore lookups + generation + caching
-	return WorldService.LoadWorld(normalized)
+	local worldData = WorldService.LoadWorld(normalized)
+
+	-- Register with WorldRegistry (skip START — always local)
+	if normalized ~= "START" then
+		local WorldRegistry = require(script.Parent.WorldRegistry)
+		WorldRegistry.Register(normalized)
+		print(`[WorldService] Registered "{normalized}" with WorldRegistry`)
+	end
+
+	return worldData
 end
 
 --[[
@@ -509,6 +522,20 @@ function WorldService.UnloadWorld(worldName: string)
 	local ProfileStore = require(script.Parent.ProfileStore)
 	if ProfileStore then
 		ProfileStore.UnregisterWorld(normalized)
+	end
+
+	-- Deregister from WorldRegistry
+	local WorldRegistry = require(script.Parent.WorldRegistry)
+	if WorldRegistry then
+		WorldRegistry.Deregister(normalized)
+		print(`[WorldService] Deregistered "{normalized}" from WorldRegistry`)
+	end
+
+	-- Clear server-side drop Parts and folder for this world
+	local DropService = require(script.Parent.DropService)
+	if DropService then
+		DropService.ClearWorldDrops(normalized)
+		print(`[WorldService] Cleared drops for unloaded world "{normalized}"`)
 	end
 
 	-- Remove from cache

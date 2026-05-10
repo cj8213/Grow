@@ -142,6 +142,9 @@ end
 --[[
 	===== CHAT SYSTEM =====
 ]]
+-- Forward declaration for repositionChatLines (assigned below, called from addChatLine's task.delay closure)
+local repositionChatLines: () -> ()
+
 local function addChatLine(senderName: string, message: string, textColor: Color3)
 	-- Shift lines up (remove oldest)
 	if #chatLines >= MAX_CHAT_LINES then
@@ -215,7 +218,7 @@ local function addChatLine(senderName: string, message: string, textColor: Color
 	end)
 end
 
-local function repositionChatLines()
+repositionChatLines = function()
 	local visibleCount = 0
 	for _, line in ipairs(chatLines) do
 		if line.Visible then

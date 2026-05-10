@@ -6,6 +6,14 @@ local StarterGui = game:GetService("StarterGui")
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+
+-- Check for cross-server teleport data
+local teleportData = TeleportService:GetLocalPlayerTeleportData()
+if teleportData and teleportData.targetWorld then
+	print(`[Client] Arrived via cross-server teleport for world: {teleportData.targetWorld}`)
+	_G.pendingWorldTravel = teleportData.targetWorld
+end
 
 print("=== GrowRoblox Client Starting ===")
 
@@ -163,7 +171,8 @@ end)
 
 -- Remove temp floor after world loads (give time for parts to render)
 -- Note: RemoteEvents was already required above for PlayerSpawned
-RemoteEvents.WorldLoaded.OnClientEvent:Connect(function()
+-- Note: Workspace was already required above
+RemoteEvents.WorldLoaded.OnClientEvent:Connect(function(worldName: string)
 	task.wait(2)  -- wait for parts to render
 	if tempFloor and tempFloor.Parent then
 		tempFloor:Destroy()
@@ -172,6 +181,181 @@ RemoteEvents.WorldLoaded.OnClientEvent:Connect(function()
 	-- Unfreeze the character now that the world is rendered
 	unfreezeCharacter()
 	worldReady = true
+
+	-- Destroy ALL Drops_* folders from Workspace. The server will send
+	-- WorldDropsLoaded with the current world's drops immediately after.
+	-- No exceptions — clearing everything prevents visual leaks from old worlds.
+	for _, folder in ipairs(Workspace:GetChildren()) do
+		if folder:IsA("Folder") and string.match(folder.Name, "^Drops_") then
+			for _, dropPart in ipairs(folder:GetChildren()) do
+				if dropPart:IsA("BasePart") then
+					dropPart:Destroy()
+				end
+			end
+			folder:Destroy()
+			print(`[Boot] Destroyed drops folder "{folder.Name}" for world change to "{worldName}"`)
+		end
+	end
+end)
+
+-- Drop visualization listeners (top-level, registered once at boot)
+
+-- DropSpawned: server spawned a new drop → create visual Part
+RemoteEvents.DropSpawned.OnClientEvent:Connect(function(dropEntry: table)
+	print(`[Boot] DropSpawned: dropId={dropEntry.id} item={dropEntry.itemId}x{dropEntry.count} world="{dropEntry.worldName}"`)
+
+	local TILE_SIZE = 4
+	local folderName = "Drops_" .. (dropEntry.worldName or "UNKNOWN")
+	local folder = Workspace:FindFirstChild(folderName)
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = folderName
+		folder.Parent = Workspace
+	end
+
+	local restingPosition = Vector3.new(
+		dropEntry.tileX * TILE_SIZE + (dropEntry.xOffset or 0),
+		-dropEntry.tileY * TILE_SIZE,
+		0
+	)
+
+	local part = Instance.new("Part")
+	part.Name = `Drop_{dropEntry.itemId}`
+	part.Size = Vector3.new(1, 1, 0.2)
+	part.CFrame = CFrame.new(restingPosition)
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = true
+	part.Transparency = 1
+
+	local itemIdValue = Instance.new("IntValue")
+	itemIdValue.Name = "DropItemId"
+	itemIdValue.Value = dropEntry.itemId
+	itemIdValue.Parent = part
+
+	local countValue = Instance.new("IntValue")
+	countValue.Name = "DropCount"
+	countValue.Value = dropEntry.count
+	countValue.Parent = part
+
+	local idValue = Instance.new("IntValue")
+	idValue.Name = "DropId"
+	idValue.Value = dropEntry.id
+	idValue.Parent = part
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "DropSprite"
+	billboard.Size = UDim2.new(0, 28, 0, 28)
+	billboard.StudsOffset = Vector3.new(0, 1.2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = part
+
+	local image = Instance.new("ImageLabel")
+	image.Name = "ItemIcon"
+	image.Size = UDim2.new(1, 0, 1, 0)
+	image.ResampleMode = Enum.ResamplerMode.Pixelated
+	image.Image = ""
+
+	local Shared = require(ReplicatedStorage.Shared)
+	local itemDef = Shared.ItemDatabase.GetItem(dropEntry.itemId) or Shared.ItemDatabase.GetSeed(dropEntry.itemId)
+	if itemDef then
+		image.BackgroundColor3 = itemDef.color
+		image.BackgroundTransparency = 0
+	else
+		image.BackgroundTransparency = 1
+	end
+
+	image.Parent = billboard
+	part.Parent = folder
+end)
+
+-- DropDestroyed: server says a drop was picked up → destroy visual Part
+RemoteEvents.DropDestroyed.OnClientEvent:Connect(function(dropId: number)
+	print(`[Boot] DropDestroyed: dropId={dropId}`)
+	for _, folder in ipairs(Workspace:GetChildren()) do
+		if folder:IsA("Folder") and string.match(folder.Name, "^Drops_") then
+			for _, child in ipairs(folder:GetChildren()) do
+				if child:IsA("BasePart") then
+					local idValue = child:FindFirstChild("DropId")
+					if idValue and idValue:IsA("IntValue") and idValue.Value == dropId then
+						child:Destroy()
+						print(`[Boot] Destroyed visual Part for drop #{dropId}`)
+						return
+					end
+				end
+			end
+		end
+	end
+end)
+
+-- WorldDropsLoaded: rebuild visual Parts for the current world after WorldLoaded cleared everything
+RemoteEvents.WorldDropsLoaded.OnClientEvent:Connect(function(worldName: string, drops: { table })
+	print(`[Boot] WorldDropsLoaded: rebuilding {#drops} drops for "{worldName}"`)
+
+	local TILE_SIZE = 4
+	local folderName = "Drops_" .. worldName
+	local folder = Instance.new("Folder")
+	folder.Name = folderName
+	folder.Parent = Workspace
+
+	local Shared = require(ReplicatedStorage.Shared)
+	for _, entry in ipairs(drops) do
+		local restingPosition = Vector3.new(
+			entry.tileX * TILE_SIZE + (entry.xOffset or 0),
+			-(entry.tileY or entry.surfaceY) * TILE_SIZE,
+			0
+		)
+
+		local part = Instance.new("Part")
+		part.Name = `Drop_{entry.itemId}`
+		part.Size = Vector3.new(1, 1, 0.2)
+		part.CFrame = CFrame.new(restingPosition)
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = true
+		part.Transparency = 1
+
+		local itemIdValue = Instance.new("IntValue")
+		itemIdValue.Name = "DropItemId"
+		itemIdValue.Value = entry.itemId
+		itemIdValue.Parent = part
+
+		local countValue = Instance.new("IntValue")
+		countValue.Name = "DropCount"
+		countValue.Value = entry.count
+		countValue.Parent = part
+
+		local idValue = Instance.new("IntValue")
+		idValue.Name = "DropId"
+		idValue.Value = entry.id
+		idValue.Parent = part
+
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "DropSprite"
+		billboard.Size = UDim2.new(0, 28, 0, 28)
+		billboard.StudsOffset = Vector3.new(0, 1.2, 0)
+		billboard.AlwaysOnTop = true
+		billboard.Parent = part
+
+		local image = Instance.new("ImageLabel")
+		image.Name = "ItemIcon"
+		image.Size = UDim2.new(1, 0, 1, 0)
+		image.ResampleMode = Enum.ResamplerMode.Pixelated
+		image.Image = ""
+
+		local itemDef = Shared.ItemDatabase.GetItem(entry.itemId) or Shared.ItemDatabase.GetSeed(entry.itemId)
+		if itemDef then
+			image.BackgroundColor3 = itemDef.color
+			image.BackgroundTransparency = 0
+		else
+			image.BackgroundTransparency = 1
+		end
+
+		image.Parent = billboard
+		part.Parent = folder
+	end
+
+	print(`[Boot] Rebuilt {#drops} drop visual Parts for "{worldName}"`)
 end)
 
 -- 2. CameraController (side-scrolling fixed-angle camera)
@@ -216,6 +400,10 @@ WrenchUI.Init()
 -- 12. Admin UI (; key toggles admin panel)
 local AdminUI = require(script.UI.AdminUI)
 AdminUI.Init()
+
+-- 13. World Entry UI (travel panel, NPC interaction, admin panel)
+local WorldEntryUI = require(script.UI.WorldEntryUI)
+WorldEntryUI.Init()
 
 -- Initial hotbar selection (slot 1 selected by default)
 Hotbar.SetSelectedSlot(1)

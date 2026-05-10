@@ -12,6 +12,7 @@
 local Players = game:GetService("Players")
 local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
 
 local RemoteEvents = require(ReplicatedStorage.Shared.RemoteEvents)
 local WorldConfig = require(ReplicatedStorage.Shared.WorldConfig)
@@ -20,6 +21,8 @@ local InventoryService = require(script.Parent.InventoryService)
 local GemService = require(script.Parent.GemService)
 local DataService = require(script.Parent.DataService)
 local ProfileStore = require(script.Parent.ProfileStore)
+local LockService = require(script.Parent.LockService)
+local WorldRegistry = require(script.Parent.WorldRegistry)
 
 -- Studs per tile (must match client: InputController.lua, WorldRenderer.lua, CameraController.lua)
 local TILE_SIZE = 4
@@ -164,16 +167,18 @@ end
 --[[
 	Move a player to a different world.
 	
+	Cross-server routing via WorldRegistry:
+	- If world is active on another server → teleport the player there
+	- If world is already loaded on this server → use cached version
+	- If world is not active anywhere → load fresh, register it
+	
 	Steps:
 	1. Validate world name
-	2. Save current world data if they were in one
-	3. Cancel pending unload for the destination world (if any)
-	4. Load or generate the destination world via WorldService
-	5. Broadcast leave message to old world players
-	6. Fire WorldLoaded to the player
-	7. Fire WorldLockStatus, GemsUpdated, InventoryUpdated to player
-	8. Broadcast enter message to new world players
-	9. Update playerWorld[userId]
+	2. Check WorldRegistry for cross-server routing
+	3. Cancel pending unload for destination
+	4. Load or generate the destination world (or skip if teleporting)
+	5. Broadcast leave/enter messages
+	6. Send all world data to player
 	
 	@param player: Player
 	@param worldName: string — destination world name
@@ -193,10 +198,65 @@ function PlayerManager.MovePlayerToWorld(player: Player, worldName: string): (bo
 	-- 2. Get the old world name
 	local oldWorld = playerWorld[player.UserId]
 
-	-- 3. Cancel any pending unload for destination world (someone's entering it)
+	-- 3. Cross-server routing via WorldRegistry
+	if normalized ~= START_WORLD_NAME then
+		print(`[PlayerManager] WorldRegistry lookup for "{normalized}"`)
+		local registryEntry = WorldRegistry.Find(normalized)
+
+		if registryEntry then
+			-- World is active on SOME server
+			local currentServerId = if game.JobId ~= "" then game.JobId else "STUDIO_"
+			local isOnThisServer = string.find(registryEntry.serverId, currentServerId, 1, true) == 1
+			if not isOnThisServer then
+				-- World is active on a DIFFERENT server → teleport player
+				print(`[PlayerManager] Routing player {player.Name} to server {registryEntry.serverId} for world "{normalized}"`)
+
+				-- Broadcast leave message first
+				if oldWorld then
+					local systemColor = Color3.fromRGB(180, 180, 180)
+					PlayerManager.BroadcastToWorld(oldWorld, "ChatMessage", "", `← {player.Name} left the world`, systemColor)
+				end
+
+				-- Save player data before teleporting
+				DataService.SavePlayerData(player, normalized)
+
+				-- Perform teleport
+				local options = Instance.new("TeleportOptions")
+				options:SetTeleportData({ targetWorld = normalized })
+
+				local tpSuccess, tpErr = pcall(function()
+					TeleportService:TeleportToPlaceInstance(
+						registryEntry.placeId,
+						registryEntry.serverId,
+						player,
+						nil,
+						options
+					)
+				end)
+
+				if tpSuccess then
+					print(`[PlayerManager] Teleported {player.Name} to server {registryEntry.serverId} for world "{normalized}"`)
+					return true, "Teleporting to world server..."
+				else
+					-- Teleport failed — fall back to local load
+					warn(`[PlayerManager] TeleportService failed for {player.Name}: {tpErr}`)
+					WorldRegistry.Deregister(normalized)
+					-- Fall through to load locally
+				end
+			else
+				-- World is already on THIS server
+				print(`[PlayerManager] World "{normalized}" already loaded on this server — using cached version`)
+			end
+		else
+			-- World not active anywhere — will load fresh
+			print(`[PlayerManager] Loading world "{normalized}" fresh`)
+		end
+	end
+
+	-- 4. Cancel any pending unload for destination world (someone's entering it)
 	PlayerManager.CancelWorldUnload(normalized)
 
-	-- 4. Load/generate the destination world
+	-- 5. Load/generate the destination world
 	local worldData: table?
 	local success, result = pcall(function()
 		return WorldService.GetOrCreateWorld(normalized)
@@ -213,18 +273,30 @@ function PlayerManager.MovePlayerToWorld(player: Player, worldName: string): (bo
 
 	worldData = result
 
-	-- 5. Broadcast leave message to old world
+	-- Register with WorldRegistry (unless START)
+	WorldRegistry.Register(normalized)
+
+	-- 6. Broadcast leave message to old world
 	if oldWorld and oldWorld ~= normalized then
 		local systemColor = Color3.fromRGB(180, 180, 180)
 		PlayerManager.BroadcastToWorld(oldWorld, "ChatMessage", "", `← {player.Name} left the world`, systemColor)
 	end
 
-	-- 6. Send WorldLoaded to player with sparse tile data
+	-- 7. Send WorldLoaded to player with sparse tile data
 	-- Build sparse tile data (only non-default tiles for efficient transfer)
 	local sparseTiles = WorldService.BuildSparseTileData(worldData)
 	PlayerManager.FireToPlayer(player, "WorldLoaded", normalized, sparseTiles, WorldService.WORLD_WIDTH, WorldService.WORLD_HEIGHT)
 
-	-- 7. Send WorldLockStatus
+	-- 7a. Send existing world drops to the client (rebuilds visuals after WorldLoaded clears them)
+	local drops = worldData.drops or {}
+	if #drops > 0 then
+		PlayerManager.FireToPlayer(player, "WorldDropsLoaded", normalized, drops)
+		print(`[PlayerManager] Sent {#drops} existing drops to {player.Name} for world "{normalized}"`)
+	else
+		print(`[PlayerManager] No existing drops for world "{normalized}"`)
+	end
+
+	-- 8. Send WorldLockStatus
 	local isLocked = worldData.lockOwner ~= nil
 	local ownerName: string? = nil
 	if isLocked and worldData.lockOwner then
@@ -233,7 +305,11 @@ function PlayerManager.MovePlayerToWorld(player: Player, worldName: string): (bo
 	end
 	PlayerManager.FireToPlayer(player, "WorldLockStatus", isLocked, ownerName)
 
-	-- 8. Send gem count and inventory
+	-- 8a. Send lock zone data (always, for lock visualization)
+	local lockZonesData = LockService.BuildLockZonesData(worldData)
+	PlayerManager.FireToPlayer(player, "LockZonesUpdated", lockZonesData)
+
+	-- 8b. Send gem count and inventory
 	local gems = GemService.GetGems(player)
 	local inventory = InventoryService.GetInventory(player)
 	PlayerManager.FireToPlayer(player, "GemsUpdated", gems)
@@ -248,7 +324,13 @@ function PlayerManager.MovePlayerToWorld(player: Player, worldName: string): (bo
 	-- 10. Update world tracking
 	playerWorld[player.UserId] = normalized
 
-	-- 11. Schedule old world unload if empty
+	-- 11. Update WorldRegistry player count for old and new worlds
+	local oldPlayerCount = #PlayerManager.GetPlayersInWorld(oldWorld or "")
+	WorldRegistry.UpdatePlayerCount(oldWorld or "", oldPlayerCount)
+	local newPlayerCount = #PlayerManager.GetPlayersInWorld(normalized)
+	WorldRegistry.UpdatePlayerCount(normalized, newPlayerCount)
+
+	-- 12. Schedule old world unload if empty
 	if oldWorld and oldWorld ~= normalized then
 		PlayerManager.ScheduleWorldUnload(oldWorld)
 	end
@@ -289,7 +371,7 @@ function PlayerManager.ScheduleWorldUnload(worldName: string)
 			return
 		end
 
-		-- Unload the world
+		-- Unload the world (WorldService.UnloadWorld calls WorldRegistry.Deregister)
 		WorldService.UnloadWorld(upperName)
 		pendingUnloads[upperName] = nil
 		print(`[PlayerManager] World "{upperName}" unloaded (30s idle)`)
@@ -395,19 +477,6 @@ local function getSpawnPosition(worldName: string): (number, number)
 	return doorX, surfaceY
 end
 
---[[
-	Handle a player joining the game.
-	- Loads player data (handled by DataService wiring)
-	- Determines if new player → gives starter items
-	- Moves player to world (START or last saved world)
-	- Fires PlayerSpawned event to client
-	@param player: Player
-]]
---[[
-	Re-fire PlayerSpawned when the player's character respawns (dies and re-creates).
-	This ensures the client always knows where to place the character, even after death.
-	@param player: Player
-]]
 local function ensureFistSlot1(player: Player)
 	local inv = InventoryService.GetInventory(player)
 	if inv then
@@ -504,8 +573,6 @@ local function onPlayerAdded(player: Player)
 	-- DataService.WirePlayerEvents handles this for new PlayerAdded events,
 	-- but for EXISTING players (already in game when server starts in Studio),
 	-- DataService's handler never fires. We must init here to avoid nil inventory.
-	-- IMPORTANT: Load saved data from ProfileStore instead of using empty defaults,
-	-- otherwise returning players lose their inventory and gems.
 	local invData = InventoryService._getInv(player)
 	if not invData then
 		-- Load saved data from ProfileStore for existing players in Studio
@@ -536,12 +603,28 @@ local function onPlayerAdded(player: Player)
 	-- Ensure START world is generated and cached
 	WorldService.GetOrCreateWorld(START_WORLD_NAME)
 
-	-- Move player to START world after a short delay (wait for client to be ready)
+	-- Determine target world: last saved world or START
+	local playerData = DataService.LoadPlayerData(player.UserId)
+	local targetWorld = START_WORLD_NAME
+	if playerData and playerData.lastWorld then
+		targetWorld = playerData.lastWorld
+		-- Check if the world still exists in DataStore
+		if not DataService.WorldExists(targetWorld) and targetWorld ~= "START" then
+			print(`[PlayerManager] Last world "{targetWorld}" no longer exists, sending to START`)
+			targetWorld = START_WORLD_NAME
+		end
+	end
+
+	-- Move player to target world after a short delay (wait for client to be ready)
 	task.wait(1.5)
 
-	local success, message = PlayerManager.MovePlayerToWorld(player, START_WORLD_NAME)
+	local success, message = PlayerManager.MovePlayerToWorld(player, targetWorld)
 	if not success then
-		warn(`[PlayerManager] Failed to move {player.Name} to START: {message}`)
+		warn(`[PlayerManager] Failed to move {player.Name} to {targetWorld}: {message}`)
+		-- Fallback to START
+		if targetWorld ~= START_WORLD_NAME then
+			PlayerManager.MovePlayerToWorld(player, START_WORLD_NAME)
+		end
 		return
 	end
 
@@ -556,18 +639,15 @@ local function onPlayerAdded(player: Player)
 	end
 
 	-- CRITICAL: Re-send inventory to client after starter items / fist enforcement
-	-- DataService.WirePlayerEvents fires InventoryUpdated on PlayerAdded with the EMPTY/loaded inventory,
-	-- but grantStarterItems adds items AFTER that. We need to send the updated inventory now.
 	local finalInv = InventoryService.GetInventory(player)
 	PlayerManager.FireToPlayer(player, "InventoryUpdated", finalInv)
 
 	-- Fire PlayerSpawned event with spawn position
-	local spawnX, spawnY = getSpawnPosition(START_WORLD_NAME)
-	PlayerManager.FireToPlayer(player, "PlayerSpawned", spawnX, spawnY, START_WORLD_NAME)
-	print(`[PlayerManager] {player.Name} spawned at ({spawnX}, {spawnY}) in "{START_WORLD_NAME}"`)
+	local spawnX, spawnY = getSpawnPosition(targetWorld)
+	PlayerManager.FireToPlayer(player, "PlayerSpawned", spawnX, spawnY, targetWorld)
+	print(`[PlayerManager] {player.Name} spawned at ({spawnX}, {spawnY}) in "{targetWorld}"`)
 
 	-- CRITICAL: Set the server-side character CFrame for existing players at boot.
-	-- For new players, wireCharacterAdded handles this when CharacterAdded fires.
 	local character = player.Character
 	if character then
 		local rootPart = character:FindFirstChild("HumanoidRootPart")
@@ -584,7 +664,7 @@ end
 	Handle a player leaving the game.
 	- Saves world data
 	- Broadcasts leave message
-	- Saves player data
+	- Saves player data (with lastWorld)
 	- Cleans up tracking
 	@param player: Player
 ]]
@@ -598,8 +678,8 @@ local function onPlayerRemoving(player: Player)
 		PlayerManager.BroadcastToWorld(worldName, "ChatMessage", "", `← {player.Name} left the world`, systemColor)
 	end
 
-	-- Save player data (DataService handles this, but ensure it's called)
-	DataService.SavePlayerData(player)
+	-- Save player data with current world as lastWorld
+	DataService.SavePlayerData(player, worldName or "START")
 
 	-- Save the world they were in (in case they modified it)
 	if worldName then
@@ -607,6 +687,12 @@ local function onPlayerRemoving(player: Player)
 		if allWorlds and allWorlds[worldName] then
 			DataService.SaveWorldData(worldName, allWorlds[worldName])
 		end
+	end
+
+	-- Update WorldRegistry player count for old world
+	if worldName then
+		local remaining = #PlayerManager.GetPlayersInWorld(worldName)
+		WorldRegistry.UpdatePlayerCount(worldName, remaining)
 	end
 
 	-- Clean up tracking
@@ -698,9 +784,6 @@ function PlayerManager.Init()
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 
 	-- Also handle players already in the game (server was live before this init)
-	-- NOTE: We call onPlayerAdded directly (not MovePlayerToWorld) so that
-	-- existing players also get the isNewPlayer check, starter items, and
-	-- PlayerSpawned event. DataService.WirePlayerEvents must have run first.
 	for _, player in ipairs(Players:GetPlayers()) do
 		task.spawn(onPlayerAdded, player)
 	end
