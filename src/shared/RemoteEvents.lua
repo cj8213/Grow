@@ -251,6 +251,10 @@ Remotes.RequestNPCInteract = GetOrCreateEvent("RequestNPCInteract")
 -- Fires: (npcType: string, data: table)
 Remotes.NPCInteractResult = GetOrCreateEvent("NPCInteractResult")
 
+-- Server → Client: Clear all visual drop parts for a world
+-- Fires: (worldName: string)
+Remotes.ClearAllDrops = GetOrCreateEvent("ClearAllDrops")
+
 
 --[[
 	===== REMOTE FUNCTIONS =====

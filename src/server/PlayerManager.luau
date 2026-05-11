@@ -288,6 +288,8 @@ function PlayerManager.MovePlayerToWorld(player: Player, worldName: string): (bo
 	PlayerManager.FireToPlayer(player, "WorldLoaded", normalized, sparseTiles, WorldService.WORLD_WIDTH, WorldService.WORLD_HEIGHT)
 
 	-- 7a. Send existing world drops to the client (rebuilds visuals after WorldLoaded clears them)
+	local dropCount = worldData.drops and #worldData.drops or 0
+	print(`[PlayerManager] Sending {dropCount} drops to {player.Name} for world "{normalized}"`)
 	local drops = worldData.drops or {}
 	if #drops > 0 then
 		PlayerManager.FireToPlayer(player, "WorldDropsLoaded", normalized, drops)

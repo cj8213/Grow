@@ -591,94 +591,38 @@ function NetworkHandler.Init()
 
 	-- Client → Server: Admin panel actions
 	RemoteEvents.RequestAdminAction.OnServerEvent:Connect(function(player: Player, action: string, itemId: number?, count: number?)
-		if type(action) ~= "string" then return end
-		if not RunService:IsStudio() then return end -- Studio only
+		if not RunService:IsStudio() then return end
+		print(`[NetworkHandler] AdminAction: {player.Name} → {action}`)
 
-		if action == "give" and itemId and itemId > 0 then
+		if action == "give" and itemId then
 			local c = count or 1
 			InventoryService.AddItem(player, itemId, c)
-			local inv = InventoryService.GetInventory(player)
-			PlayerManager.FireToPlayer(player, "InventoryUpdated", inv)
+			PlayerManager.FireToPlayer(player, "InventoryUpdated", InventoryService.GetInventory(player))
+			print(`[NetworkHandler] Gave {c}x item {itemId} to {player.Name}`)
+
 		elseif action == "clear" then
 			InventoryService.ClearInventory(player)
-			local inv = InventoryService.GetInventory(player)
-			PlayerManager.FireToPlayer(player, "InventoryUpdated", inv)
+			PlayerManager.FireToPlayer(player, "InventoryUpdated", InventoryService.GetInventory(player))
+			print(`[NetworkHandler] Cleared inventory for {player.Name}`)
+
+		elseif action == "cleardrops" then
+			DevTools.HandleCommand(player, "cleardrops", {})
+
 		elseif action == "showlocks" then
-			local worldName = PlayerManager.GetPlayerWorld(player)
-			if worldName then
-				local wd = WorldService.GetCachedWorld(worldName)
-				if wd then
-					local lockData = LockService.BuildLockZonesData(wd)
-					PlayerManager.FireToPlayer(player, "LockZonesUpdated", lockData)
-				end
-			end
+			DevTools.HandleCommand(player, "showlocks", {})
+
 		elseif action == "removelocks" then
-			-- Remove ALL locks from the current world (World Lock + Small Locks)
 			local worldName = PlayerManager.GetPlayerWorld(player)
 			if worldName then
-				local wd = WorldService.GetCachedWorld(worldName)
+				local allWorlds = WorldService.GetAllWorlds()
+				local wd = allWorlds and allWorlds[worldName]
 				if wd then
-					local locksReturned = 0
-					-- Scan all tiles for lock blocks (fg=26 or fg=27)
-					if wd.tiles then
-						for _, tile in ipairs(wd.tiles) do
-							if tile.fg == 26 then
-								tile.fg = 0
-								tile.bg = tile.bg or 0
-								tile.hp = 0
-								locksReturned += 1
-							elseif tile.fg == 27 then
-								tile.fg = 0
-								tile.bg = tile.bg or 0
-								tile.hp = 0
-								locksReturned += 1
-							end
-						end
-					end
-					-- Clear world lock
-					local hadWorldLock = wd.lockOwner ~= nil
 					wd.lockOwner = nil
 					wd.admins = {}
-					-- Clear all small locks using new dynamic lock system
-					local smallLocksRemoved, smallLockItems = LockService.RemoveAllLocks(wd)
-					-- Return locks to inventory
-					local totalLockItems = locksReturned + smallLockItems
-					if totalLockItems > 0 then
-						PlayerManager.AddItem(player, 26, locksReturned)
-						if smallLockItems > 0 then
-							PlayerManager.AddItem(player, 27, smallLockItems)
-						end
-					end
-					if hadWorldLock then
-						PlayerManager.BroadcastToWorld(worldName, "WorldLockStatus", false, nil)
-					end
-					wd.updatedAt = os.time()
-					PlayerManager.FireToPlayer(player, "ChatMessage", "System",
-						`Removed {locksReturned} lock block(s) + {smallLocksRemoved} small lock zone(s)`, Color3.fromRGB(200, 255, 200))
-					local InventoryService = require(script.Parent.InventoryService)
-					PlayerManager.FireToPlayer(player, "InventoryUpdated", InventoryService.GetInventory(player))
-					-- Broadcast updated lock visualization
-					PlayerManager.BroadcastToWorld(worldName, "LockZonesUpdated", LockService.BuildLockZonesData(wd))
-					print(`[Admin] Removed all locks from "{worldName}" by {player.Name}`)
-				end
-			end
-		elseif action == "cleardrops" then
-			local worldName = PlayerManager.GetPlayerWorld(player)
-			if worldName then
-				local wd = WorldService.GetCachedWorld(worldName)
-				if wd then
-					-- Clear server-side drop Parts and folder
-					DropService.ClearWorldDrops(worldName)
-					-- Clear the worldData.drops array so persisted data is gone
-					local dropCount = 0
-					if wd.drops then
-						dropCount = #wd.drops
-						wd.drops = {}
-					end
-					wd.updatedAt = os.time()
-					PlayerManager.FireToPlayer(player, "ChatMessage", "System",
-						`Cleared {dropCount} drops from "{worldName}"`, Color3.fromRGB(200, 255, 200))
-					print(`[Admin] {player.Name} cleared all drops from "{worldName}" ({dropCount} drops)`)
+					wd.lockClaims = {}
+					wd.lockRegistry = {}
+					PlayerManager.BroadcastToWorld(worldName, "WorldLockStatus", false, nil)
+					print(`[NetworkHandler] Removed all locks from "{worldName}"`)
 				end
 			end
 		end

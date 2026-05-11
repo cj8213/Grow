@@ -182,18 +182,25 @@ RemoteEvents.WorldLoaded.OnClientEvent:Connect(function(worldName: string)
 	unfreezeCharacter()
 	worldReady = true
 
-	-- Destroy ALL Drops_* folders from Workspace. The server will send
-	-- WorldDropsLoaded with the current world's drops immediately after.
-	-- No exceptions — clearing everything prevents visual leaks from old worlds.
+	-- Destroy old Drops_* folders from Workspace, but SKIP the current world's folder.
+	-- WorldDropsLoaded has already rebuilt the current world's drops by now (no delay),
+	-- so destroying the current world's folder would wipe out the just-rebuilt visuals.
+	local upperName = string.upper(worldName)
 	for _, folder in ipairs(Workspace:GetChildren()) do
 		if folder:IsA("Folder") and string.match(folder.Name, "^Drops_") then
-			for _, dropPart in ipairs(folder:GetChildren()) do
-				if dropPart:IsA("BasePart") then
-					dropPart:Destroy()
+			local folderWorld = string.sub(folder.Name, 7)
+			if folderWorld ~= upperName then
+				-- Only destroy folders from OTHER worlds
+				for _, dropPart in ipairs(folder:GetChildren()) do
+					if dropPart:IsA("BasePart") then
+						dropPart:Destroy()
+					end
 				end
+				folder:Destroy()
+				print(`[Boot] Destroyed old drops folder "{folder.Name}"`)
+			else
+				print(`[Boot] Kept drops folder "{folder.Name}" for current world`)
 			end
-			folder:Destroy()
-			print(`[Boot] Destroyed drops folder "{folder.Name}" for world change to "{worldName}"`)
 		end
 	end
 end)
@@ -356,6 +363,16 @@ RemoteEvents.WorldDropsLoaded.OnClientEvent:Connect(function(worldName: string, 
 	end
 
 	print(`[Boot] Rebuilt {#drops} drop visual Parts for "{worldName}"`)
+end)
+
+-- ClearAllDrops: server instructs client to destroy all visual drop Parts for a world
+RemoteEvents.ClearAllDrops.OnClientEvent:Connect(function(worldName: string)
+	local upperName = string.upper(worldName)
+	local folder = Workspace:FindFirstChild("Drops_" .. upperName)
+	if folder then
+		folder:Destroy()
+		print(`[Client] ClearAllDrops — destroyed Drops_{upperName} folder`)
+	end
 end)
 
 -- 2. CameraController (side-scrolling fixed-angle camera)

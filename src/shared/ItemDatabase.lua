@@ -549,6 +549,511 @@ define(30, {
 })
 
 --[[
+	=== TIER 5-6 NEW ITEMS (IDs 31-56) ===
+	Added via expansion task. Tier 2-5 blocks, tall doors, farmable seeds.
+]]
+
+-- 31: Timber (T2 SOLID)
+define(31, {
+	name = "Timber",
+	type = ItemTypes.SOLID,
+	hp = 8,
+	rarity = 3,
+	growthTime = 45,
+	seedDropChance = 0.4,
+	gemDropMin = 1,
+	gemDropMax = 3,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 131,
+	color = Color3.fromRGB(139, 90, 43),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 32: Fire Brick (T2 SOLID)
+define(32, {
+	name = "Fire Brick",
+	type = ItemTypes.SOLID,
+	hp = 10,
+	rarity = 3,
+	growthTime = 45,
+	seedDropChance = 0.35,
+	gemDropMin = 1,
+	gemDropMax = 3,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 132,
+	color = Color3.fromRGB(180, 60, 20),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 33: Mud Slab (T2 SOLID)
+define(33, {
+	name = "Mud Slab",
+	type = ItemTypes.SOLID,
+	hp = 7,
+	rarity = 3,
+	growthTime = 40,
+	seedDropChance = 0.45,
+	gemDropMin = 1,
+	gemDropMax = 3,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 133,
+	color = Color3.fromRGB(101, 67, 33),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 34: Scaffold (T2 PLATFORM)
+define(34, {
+	name = "Scaffold",
+	type = ItemTypes.PLATFORM,
+	hp = 6,
+	rarity = 3,
+	growthTime = 40,
+	seedDropChance = 0.4,
+	gemDropMin = 1,
+	gemDropMax = 3,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 134,
+	color = Color3.fromRGB(160, 120, 60),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 35: Stone Gate (T2 DOOR, tall)
+define(35, {
+	name = "Stone Gate",
+	type = ItemTypes.DOOR,
+	hp = 12,
+	rarity = 3,
+	growthTime = 50,
+	seedDropChance = 0.35,
+	gemDropMin = 1,
+	gemDropMax = 3,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 135,
+	color = Color3.fromRGB(120, 120, 120),
+	imageId = "",
+	isTallDoor = true,
+})
+
+-- 36: Wall Torch (T2 SOLID) -- TYPE_LIGHT when available
+define(36, {
+	name = "Wall Torch",
+	type = ItemTypes.SOLID,
+	hp = 4,
+	rarity = 3,
+	growthTime = 35,
+	seedDropChance = 0.45,
+	gemDropMin = 1,
+	gemDropMax = 3,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 136,
+	color = Color3.fromRGB(255, 160, 30),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 37: Wood Panel (T3 SOLID)
+define(37, {
+	name = "Wood Panel",
+	type = ItemTypes.SOLID,
+	hp = 10,
+	rarity = 4,
+	growthTime = 55,
+	seedDropChance = 0.35,
+	gemDropMin = 2,
+	gemDropMax = 5,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 137,
+	color = Color3.fromRGB(160, 110, 50),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 38: Cut Stone (T3 SOLID)
+define(38, {
+	name = "Cut Stone",
+	type = ItemTypes.SOLID,
+	hp = 14,
+	rarity = 4,
+	growthTime = 60,
+	seedDropChance = 0.3,
+	gemDropMin = 2,
+	gemDropMax = 5,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 138,
+	color = Color3.fromRGB(140, 140, 150),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 39: Red Floor Tile (T3 SOLID)
+define(39, {
+	name = "Red Floor Tile",
+	type = ItemTypes.SOLID,
+	hp = 9,
+	rarity = 4,
+	growthTime = 50,
+	seedDropChance = 0.35,
+	gemDropMin = 2,
+	gemDropMax = 5,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 139,
+	color = Color3.fromRGB(180, 50, 50),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 40: Bridge Plank (T3 PLATFORM)
+define(40, {
+	name = "Bridge Plank",
+	type = ItemTypes.PLATFORM,
+	hp = 8,
+	rarity = 4,
+	growthTime = 50,
+	seedDropChance = 0.35,
+	gemDropMin = 2,
+	gemDropMax = 5,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 140,
+	color = Color3.fromRGB(150, 100, 40),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 41: Heavy Gate (T3 DOOR, tall)
+define(41, {
+	name = "Heavy Gate",
+	type = ItemTypes.DOOR,
+	hp = 18,
+	rarity = 4,
+	growthTime = 65,
+	seedDropChance = 0.3,
+	gemDropMin = 2,
+	gemDropMax = 5,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 141,
+	color = Color3.fromRGB(80, 80, 80),
+	imageId = "",
+	isTallDoor = true,
+})
+
+-- 42: Lamp Post (T3 SOLID) -- TYPE_LIGHT when available
+define(42, {
+	name = "Lamp Post",
+	type = ItemTypes.SOLID,
+	hp = 6,
+	rarity = 4,
+	growthTime = 50,
+	seedDropChance = 0.35,
+	gemDropMin = 2,
+	gemDropMax = 5,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 142,
+	color = Color3.fromRGB(220, 180, 50),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 43: Burnt Shard (T3 SOLID)
+define(43, {
+	name = "Burnt Shard",
+	type = ItemTypes.SOLID,
+	hp = 5,
+	rarity = 4,
+	growthTime = 45,
+	seedDropChance = 0.4,
+	gemDropMin = 2,
+	gemDropMax = 5,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 143,
+	color = Color3.fromRGB(60, 40, 30),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 44: Black Glass Tile (T4 SOLID)
+define(44, {
+	name = "Black Glass Tile",
+	type = ItemTypes.SOLID,
+	hp = 8,
+	rarity = 5,
+	growthTime = 70,
+	seedDropChance = 0.3,
+	gemDropMin = 4,
+	gemDropMax = 9,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 144,
+	color = Color3.fromRGB(20, 20, 30),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 45: Charwood Beam (T4 SOLID)
+define(45, {
+	name = "Charwood Beam",
+	type = ItemTypes.SOLID,
+	hp = 12,
+	rarity = 5,
+	growthTime = 70,
+	seedDropChance = 0.3,
+	gemDropMin = 4,
+	gemDropMax = 9,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 145,
+	color = Color3.fromRGB(40, 25, 15),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 46: Stone Arch (T4 SOLID)
+define(46, {
+	name = "Stone Arch",
+	type = ItemTypes.SOLID,
+	hp = 16,
+	rarity = 5,
+	growthTime = 75,
+	seedDropChance = 0.25,
+	gemDropMin = 4,
+	gemDropMax = 9,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 146,
+	color = Color3.fromRGB(160, 150, 140),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 47: Wood Iron Door (T4 DOOR, tall)
+define(47, {
+	name = "Wood Iron Door",
+	type = ItemTypes.DOOR,
+	hp = 22,
+	rarity = 5,
+	growthTime = 80,
+	seedDropChance = 0.25,
+	gemDropMin = 4,
+	gemDropMax = 9,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 147,
+	color = Color3.fromRGB(90, 60, 30),
+	imageId = "",
+	isTallDoor = true,
+})
+
+-- 48: Blue Crystal Lamp (T4 SOLID) -- TYPE_LIGHT when available
+define(48, {
+	name = "Blue Crystal Lamp",
+	type = ItemTypes.SOLID,
+	hp = 6,
+	rarity = 5,
+	growthTime = 70,
+	seedDropChance = 0.3,
+	gemDropMin = 4,
+	gemDropMax = 9,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 148,
+	color = Color3.fromRGB(80, 140, 255),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 49: Sparkle Dust (T4 SOLID)
+define(49, {
+	name = "Sparkle Dust",
+	type = ItemTypes.SOLID,
+	hp = 4,
+	rarity = 5,
+	growthTime = 65,
+	seedDropChance = 0.35,
+	gemDropMin = 4,
+	gemDropMax = 9,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 149,
+	color = Color3.fromRGB(200, 200, 255),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 50: Shadow Tile (T5 SOLID)
+define(50, {
+	name = "Shadow Tile",
+	type = ItemTypes.SOLID,
+	hp = 14,
+	rarity = 6,
+	growthTime = 90,
+	seedDropChance = 0.2,
+	gemDropMin = 8,
+	gemDropMax = 18,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 150,
+	color = Color3.fromRGB(30, 20, 40),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 51: Lava Wood (T5 SOLID)
+define(51, {
+	name = "Lava Wood",
+	type = ItemTypes.SOLID,
+	hp = 16,
+	rarity = 6,
+	growthTime = 90,
+	seedDropChance = 0.2,
+	gemDropMin = 8,
+	gemDropMax = 18,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 151,
+	color = Color3.fromRGB(180, 80, 10),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 52: Rainbow Beacon (T5 SOLID)
+define(52, {
+	name = "Rainbow Beacon",
+	type = ItemTypes.SOLID,
+	hp = 10,
+	rarity = 6,
+	growthTime = 85,
+	seedDropChance = 0.25,
+	gemDropMin = 8,
+	gemDropMax = 18,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 152,
+	color = Color3.fromRGB(255, 100, 200),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 53: Golden Arch (T5 SOLID)
+define(53, {
+	name = "Golden Arch",
+	type = ItemTypes.SOLID,
+	hp = 20,
+	rarity = 6,
+	growthTime = 95,
+	seedDropChance = 0.2,
+	gemDropMin = 8,
+	gemDropMax = 18,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = 153,
+	color = Color3.fromRGB(220, 180, 30),
+	imageId = "",
+	isTallDoor = false,
+})
+
+-- 54: Ashveil Seed (T6 Farmable SEED)
+define(54, {
+	name = "Ashveil Seed",
+	type = ItemTypes.SEED,
+	hp = 1,
+	rarity = 7,
+	growthTime = 7200,
+	seedDropChance = 0,
+	gemDropMin = 0,
+	gemDropMax = 0,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = nil,
+	color = Color3.fromRGB(100, 60, 80),
+	imageId = "",
+	isTallDoor = false,
+	growTime = 7200,
+	seedYield = 0.85,
+})
+
+-- 55: Duskbloom Seed (T6 Farmable SEED)
+define(55, {
+	name = "Duskbloom Seed",
+	type = ItemTypes.SEED,
+	hp = 1,
+	rarity = 8,
+	growthTime = 28800,
+	seedDropChance = 0,
+	gemDropMin = 0,
+	gemDropMax = 0,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = nil,
+	color = Color3.fromRGB(60, 30, 90),
+	imageId = "",
+	isTallDoor = false,
+	growTime = 28800,
+	seedYield = 0.85,
+})
+
+-- 56: Sunstone Seed (T6 Farmable SEED)
+define(56, {
+	name = "Sunstone Seed",
+	type = ItemTypes.SEED,
+	hp = 1,
+	rarity = 9,
+	growthTime = 86400,
+	seedDropChance = 0,
+	gemDropMin = 0,
+	gemDropMax = 0,
+	isSplicable = true,
+	unsplicable = false,
+	tradeable = true,
+	seedId = nil,
+	color = Color3.fromRGB(255, 200, 50),
+	imageId = "",
+	isTallDoor = false,
+	growTime = 86400,
+	seedYield = 0.85,
+})
+
+--[[
 	=== SEEDS (IDs 101-130+) ===
 	Seeds are separate items from blocks.
 	Each block type has a corresponding seed.

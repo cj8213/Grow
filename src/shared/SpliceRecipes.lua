@@ -94,6 +94,83 @@ recipe(1, 11, 24)
 -- Add more as new items are introduced
 
 --[[
+	=== TIER 2 NEW RECIPES (IDs 31-36) ===
+]]
+
+-- Dirt + Cave BG = Timber
+recipe(1, 3, 31)
+-- Rock + Cave BG = Fire Brick
+recipe(2, 3, 32)
+-- Dirt + Rock = Mud Slab
+recipe(1, 2, 33)
+-- Timber + Rock = Scaffold
+recipe(31, 2, 34)
+-- Mud Slab + Cave BG = Stone Gate
+recipe(33, 3, 35)
+-- Fire Brick + Cave BG = Wall Torch
+recipe(32, 3, 36)
+
+--[[
+	=== TIER 3 RECIPES (IDs 37-43) ===
+]]
+
+-- Timber + Dirt = Wood Panel
+recipe(31, 1, 37)
+-- Fire Brick + Rock = Cut Stone
+recipe(32, 2, 38)
+-- Mud Slab + Dirt = Red Floor Tile
+recipe(33, 1, 39)
+-- Scaffold + Timber = Bridge Plank
+recipe(34, 31, 40)
+-- Stone Gate + Fire Brick = Heavy Gate
+recipe(35, 32, 41)
+-- Wall Torch + Wood Panel = Lamp Post
+recipe(36, 37, 42)
+-- Red Floor Tile + Cave BG = Burnt Shard
+recipe(39, 3, 43)
+
+--[[
+	=== TIER 4 RECIPES (IDs 44-49) ===
+]]
+
+-- Cut Stone + Burnt Shard = Black Glass Tile
+recipe(38, 43, 44)
+-- Wood Panel + Burnt Shard = Charwood Beam
+recipe(37, 43, 45)
+-- Bridge Plank + Cut Stone = Stone Arch
+recipe(40, 38, 46)
+-- Heavy Gate + Charwood Beam = Wood Iron Door
+recipe(41, 45, 47)
+-- Lamp Post + Black Glass Tile = Blue Crystal Lamp
+recipe(42, 44, 48)
+-- Burnt Shard + Burnt Shard = Sparkle Dust
+recipe(43, 43, 49)
+
+--[[
+	=== TIER 5 RECIPES (IDs 50-53) ===
+]]
+
+-- Black Glass Tile + Sparkle Dust = Shadow Tile
+recipe(44, 49, 50)
+-- Charwood Beam + Sparkle Dust = Lava Wood
+recipe(45, 49, 51)
+-- Blue Crystal Lamp + Sparkle Dust = Rainbow Beacon
+recipe(48, 49, 52)
+-- Stone Arch + Sparkle Dust = Golden Arch
+recipe(46, 49, 53)
+
+--[[
+	=== TIER 6 FARMABLE SEED RECIPES (IDs 54-56) ===
+]]
+
+-- Shadow Tile + Lava Wood = Ashveil Seed
+recipe(50, 51, 54)
+-- Golden Arch + Rainbow Beacon = Duskbloom Seed
+recipe(53, 52, 55)
+-- Ashveil Seed + Duskbloom Seed = Sunstone Seed
+recipe(54, 55, 56)
+
+--[[
 	=== PUBLIC API ===
 ]]
 

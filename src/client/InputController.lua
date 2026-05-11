@@ -92,6 +92,9 @@ local pendingPickups: { [number]: boolean } = {}  -- debounce by dropId (number)
 -- Current world name (updated from PlayerSpawned) — only scan Drops_ folder matching this world
 local currentWorldName: string = "START"
 
+-- World transition guard — blocks pickup requests while traveling between worlds
+local isTransitioning = false
+
 --[[
 	===== HELPERS =====
 ]]
@@ -359,8 +362,10 @@ local function checkDoorCollision()
 	end
 
 	lastDoorTravelTime = now
+	pendingPickups = {}
+	isTransitioning = true
 	RemoteEvents.RequestTravelWorld:FireServer(destination)
-	print(`[InputController] Door travel → "{destination}"`)
+	print(`[InputController] World travel started → "{destination}" — cleared all pending pickups`)
 end
 
 --[[
@@ -736,7 +741,8 @@ RemoteEvents.InventoryUpdated.OnClientEvent:Connect(onInventoryUpdated)
 -- Listen for WorldLoaded — clear pendingPickups so drops in the new world can be picked up
 RemoteEvents.WorldLoaded.OnClientEvent:Connect(function(worldName: string)
 	pendingPickups = {}
-	print(`[InputController] Cleared pendingPickups for world change to "{worldName}"`)
+	isTransitioning = false
+	print(`[InputController] World transition complete — cleared pendingPickups for world "{worldName}"`)
 end)
 
 -- Listen for PlayerSpawned (server tells us where to spawn the character)
@@ -781,6 +787,8 @@ end)
 		checkDoorCollision()
 
 		-- Instant pickup: only scan the Drops_ folder matching the player's current world.
+		-- Skip entirely during world transitions to prevent stale pickup requests.
+		if isTransitioning then return end
 		if humanoidRootPart and humanoidRootPart.Parent then
 			local expectedFolderName = "Drops_" .. currentWorldName
 			local folder = Workspace:FindFirstChild(expectedFolderName)

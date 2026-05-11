@@ -151,6 +151,28 @@ function DevTools.HandleCommand(player: Player, cmd: string, args: { string }): 
 			`Showing {#lockData.smallLocks} small lock zone(s)`, Color3.fromRGB(200, 255, 200))
 		print(`[DevTools] Sent {#lockData.smallLocks} small lock zones to {player.Name} in "{worldName}"`)
 		return true
+	elseif cmd == "cleardrops" then
+		local WorldService = require(script.Parent.WorldService)
+		local allWorlds = WorldService.GetAllWorlds()
+		local total = 0
+		for worldName, worldData in pairs(allWorlds) do
+			if worldData.drops then
+				total = total + #worldData.drops
+				worldData.drops = {}
+				print(`[DevTools] Cleared drops for world "{worldName}"`)
+				-- Tell all players in this world to destroy visual drop Parts
+				PlayerManager.BroadcastToWorld(worldName, "ClearAllDrops", worldName)
+			end
+		end
+		-- Force save all worlds immediately
+		local DataService = require(script.Parent.DataService)
+		for worldName, worldData in pairs(allWorlds) do
+			DataService.SaveWorldData(worldName, worldData)
+		end
+		PlayerManager.FireToPlayer(player, "ChatMessage", "System",
+			`Cleared {total} corrupted drops`, Color3.fromRGB(200, 255, 200))
+		print(`[DevTools] Cleared {total} corrupted drops total`)
+		return true
 	end
 
 	return false -- Not a DevTools command

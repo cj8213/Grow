@@ -302,12 +302,36 @@ function SeedService.HarvestTree(player: Player, worldData: table, tileX: number
 		drops[seedId] = (drops[seedId] or 0) + blockDropCount
 	end
 
-	-- Drop 1-2 seeds
-	local seedDropCount = rng:NextInteger(1, 2)
-	drops[seedId] = (drops[seedId] or 0) + seedDropCount
+	-- Drop 1-2 seeds (with seedYield probability for farmable seeds)
+	local seedDef = ItemDatabase.GetSeed(seedId)
+	local seedDropCount = 0
+	if seedDef and seedDef.seedYield then
+		-- Farmable seed: use seedYield probability to return the seed
+		if rng:NextNumber() <= seedDef.seedYield then
+			seedDropCount = 1
+		end
+	else
+		-- Default: always return 1-2 seeds
+		seedDropCount = rng:NextInteger(1, 2)
+	end
+	if seedDropCount > 0 then
+		drops[seedId] = (drops[seedId] or 0) + seedDropCount
+	end
 
-	-- Drop 1-5 gems (ID 28)
-	local gemDropCount = rng:NextInteger(1, DEFAULT_GEM_DROP_MAX)
+	-- Drop gems — farmable seeds use special payout overrides
+	local farmableGemPayouts = {
+		[54] = { min = 40, max = 80 },   -- Ashveil Seed (2hr)
+		[55] = { min = 150, max = 280 }, -- Duskbloom Seed (8hr)
+		[56] = { min = 500, max = 900 }, -- Sunstone Seed (24hr)
+	}
+	local gemDropCount = 0
+	if farmableGemPayouts[seedId] then
+		local payout = farmableGemPayouts[seedId]
+		gemDropCount = rng:NextInteger(payout.min, payout.max)
+		print(`[SeedService] Farmable seed #{seedId} harvested — gem payout: {gemDropCount}`)
+	else
+		gemDropCount = rng:NextInteger(1, DEFAULT_GEM_DROP_MAX)
+	end
 	drops[28] = (drops[28] or 0) + gemDropCount
 
 	-- === CLEAR THE TILE ===

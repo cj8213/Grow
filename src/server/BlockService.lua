@@ -261,6 +261,31 @@ function BlockService.BreakBlock(player: Player, worldData: table, tileX: number
 		return true, nil
 	end
 
+	-- === TALL DOOR CHECK: also clear the other tile ===
+	local clearedTallDoor = false
+	if itemDef.isTallDoor == true then
+		-- Check tile above (tileY-1) for matching itemId
+		if tileY - 1 >= 0 then
+			local aboveIndex = tileX + (tileY - 1) * WorldConfig.WORLD_WIDTH + 1
+			local aboveTile = worldData.tiles[aboveIndex]
+			if aboveTile and aboveTile.fg == fgBlockId then
+				aboveTile.fg = 0
+				aboveTile.hp = 0
+				clearedTallDoor = true
+			end
+		end
+		-- Check tile below (tileY+1) for matching itemId
+		if tileY + 1 < WorldConfig.WORLD_HEIGHT then
+			local belowIndex = tileX + (tileY + 1) * WorldConfig.WORLD_WIDTH + 1
+			local belowTile = worldData.tiles[belowIndex]
+			if belowTile and belowTile.fg == fgBlockId then
+				belowTile.fg = 0
+				belowTile.hp = 0
+				clearedTallDoor = true
+			end
+		end
+	end
+
 	-- === CLEAR THE TILE ===
 	tile.fg = 0
 	tile.bg = tile.bg or 0
@@ -272,6 +297,10 @@ function BlockService.BreakBlock(player: Player, worldData: table, tileX: number
 	end
 
 	worldData.updatedAt = os.time()
+
+	if clearedTallDoor then
+		print(`[BlockService] Tall door {itemDef.name} broken at ({tileX}, {tileY}) — cleared both tiles`)
+	end
 
 	-- Spawn physical drops in the world using math-based gravity.
 	local dropTypeCount = 0
@@ -434,7 +463,35 @@ function BlockService.PlaceBlock(player: Player, worldData: table, tileX: number
 		end
 	end
 
-	-- 14. Determine which layer to place the item in
+	-- 14. Tall door check: must have empty tile above for 2-tile-high doors
+	if itemDef.isTallDoor == true then
+		if tileY - 1 < 0 then
+			return false, "Not enough room for tall door (near top of world)"
+		end
+		local aboveIndex = tileX + (tileY - 1) * WorldConfig.WORLD_WIDTH + 1
+		local aboveTile = worldData.tiles[aboveIndex]
+		if not aboveTile then
+			return false, "Upper tile out of bounds"
+		end
+		if aboveTile.fg ~= 0 and aboveTile.fg ~= nil then
+			return false, "Upper tile is occupied (tall door needs 2 empty tiles)"
+		end
+
+		-- Place door in both tiles
+		tile.fg = itemId
+		tile.hp = itemDef.hp or 1
+		aboveTile.fg = itemId
+		aboveTile.hp = itemDef.hp or 1
+
+		-- 15. Consume 1 item from inventory
+		PlayerManager.RemoveItem(player, itemId, 1)
+		worldData.updatedAt = os.time()
+
+		print(`[BlockService] {player.Name} placed tall door {itemDef.name} at ({tileX}, {tileY}-{tileY-1})`)
+		return true, "Tall door placed"
+	end
+
+	-- 15. Determine which layer to place the item in
 	if itemDef.type == WorldConfig.ItemTypes.BACKGROUND then
 		-- Background layer — check bg slot
 		if tile.bg ~= 0 and tile.bg ~= nil then
@@ -451,7 +508,7 @@ function BlockService.PlaceBlock(player: Player, worldData: table, tileX: number
 		tile.hp = itemDef.hp or 1
 	end
 
-	-- 15. Consume 1 item from inventory
+	-- 16. Consume 1 item from inventory
 	PlayerManager.RemoveItem(player, itemId, 1)
 
 	worldData.updatedAt = os.time()

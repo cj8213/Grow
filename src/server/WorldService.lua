@@ -328,6 +328,9 @@ function WorldService.LoadWorld(worldName: string): table
 		DropService.LoadSavedDrops(normalized, worldData)
 	end
 
+	local dropCount = worldData.drops and #worldData.drops or 0
+	print(`[WorldService] Loaded world "{normalized}" with {dropCount} drops from DataStore`)
+
 	-- Register with ProfileStore for auto-save tracking
 	local ProfileStore = require(script.Parent.ProfileStore)
 	if ProfileStore then
@@ -513,6 +516,8 @@ function WorldService.UnloadWorld(worldName: string)
 	end
 
 	-- Save to DataStore before removing
+	local dropCount = worldData.drops and #worldData.drops or 0
+	print(`[WorldService] Saving world "{normalized}" with {dropCount} drops`)
 	local DataService = require(script.Parent.DataService)
 	if DataService then
 		DataService.SaveWorldData(normalized, worldData)

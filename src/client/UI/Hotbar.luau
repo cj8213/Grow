@@ -183,7 +183,18 @@ local function updateSlot(index: number)
 	if data and data.itemId and data.itemId > 0 then
 		local item = ItemDatabase.GetItem(data.itemId)
 		local color = item and item.color or EMPTY_COLOR
-		btn.BackgroundColor3 = color
+
+		-- Image icon system: if item has an imageId, show the icon instead of background color
+		if item and item.imageId and item.imageId ~= "" then
+			btn.Image = "rbxassetid://" .. item.imageId
+			btn.ImageTransparency = 0
+			btn.BackgroundColor3 = color
+			btn.BackgroundTransparency = 0
+		else
+			btn.ImageTransparency = 1
+			btn.BackgroundColor3 = color
+			btn.BackgroundTransparency = 0
+		end
 
 		if data.count > 1 then
 			countLabel.Text = tostring(data.count)
@@ -193,7 +204,9 @@ local function updateSlot(index: number)
 			countLabel.Visible = false
 		end
 	else
+		btn.ImageTransparency = 1
 		btn.BackgroundColor3 = EMPTY_COLOR
+		btn.BackgroundTransparency = 0
 		countLabel.Text = ""
 		countLabel.Visible = false
 	end
@@ -503,6 +516,22 @@ end
 
 function Hotbar.GetSlotData(slotIndex: number): { itemId: number, count: number }?
 	return slotData[slotIndex]
+end
+
+function Hotbar.SetItemIcon(itemId: number, imageId: string)
+	-- Update imageId in ItemDatabase cache and re-render all slots showing that item
+	if not itemId or itemId <= 0 then return end
+	local item = ItemDatabase.GetItem(itemId)
+	if item then
+		item.imageId = imageId or ""
+	end
+	-- Re-render all slots that show this item
+	for i = 1, TOTAL_SLOTS do
+		local data = slotData[i]
+		if data and data.itemId == itemId then
+			updateSlot(i)
+		end
+	end
 end
 
 function Hotbar.Destroy()

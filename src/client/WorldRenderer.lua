@@ -270,17 +270,36 @@ local function createTileParts(x: number, y: number)
     local fgPart: Part? = nil
 
     if fgId > 0 then
-        -- Visible block with collision
-        fgPart = Instance.new("Part")
-        fgPart.Name = `Tile_{x}_{y}`
-        fgPart.Size = Vector3.new(TILE_SIZE, TILE_SIZE, TILE_SIZE)
-        fgPart.Position = worldPos
-        fgPart.Anchored = true
-        fgPart.CanCollide = true
-        fgPart.CastShadow = false
-        fgPart.Material = Enum.Material.SmoothPlastic
-        fgPart.BrickColor = BrickColor.new(getItemColor(fgId))
-        fgPart.Parent = worldTilesFolder
+        -- Check if this is a tall door — spans 2 tiles vertically
+        local itemDef = ItemDatabase.GetItem(fgId)
+        local isTallDoor = itemDef and itemDef.isTallDoor == true
+
+        if isTallDoor then
+            -- Tall door: create a Part that spans 2 tiles vertically
+            fgPart = Instance.new("Part")
+            fgPart.Name = `Tile_{x}_{y}`
+            fgPart.Size = Vector3.new(TILE_SIZE, TILE_SIZE * 2, TILE_SIZE)
+            -- Offset up by half a tile so it spans current tile and tile above
+            fgPart.Position = Vector3.new(x * TILE_SIZE, -y * TILE_SIZE + TILE_SIZE / 2, 0)
+            fgPart.Anchored = true
+            fgPart.CanCollide = true
+            fgPart.CastShadow = false
+            fgPart.Material = Enum.Material.SmoothPlastic
+            fgPart.BrickColor = BrickColor.new(getItemColor(fgId))
+            fgPart.Parent = worldTilesFolder
+        else
+            -- Standard block: 1 tile
+            fgPart = Instance.new("Part")
+            fgPart.Name = `Tile_{x}_{y}`
+            fgPart.Size = Vector3.new(TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            fgPart.Position = worldPos
+            fgPart.Anchored = true
+            fgPart.CanCollide = true
+            fgPart.CastShadow = false
+            fgPart.Material = Enum.Material.SmoothPlastic
+            fgPart.BrickColor = BrickColor.new(getItemColor(fgId))
+            fgPart.Parent = worldTilesFolder
+        end
 
         -- Apply textures to block faces
         applyBlockTextures(fgPart, fgId, x, y)

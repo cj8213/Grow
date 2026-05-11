@@ -40,7 +40,11 @@ end
 	Create a visual Part for a drop. Always uses worldName; never hardcodes "MAIN".
 ]]
 local function createDropPart(entry: table): Part
-	local TILE_SIZE = WorldConfig.TILE_SIZE or 4
+	local TILE_SIZE = WorldConfig.TILE_SIZE_STUDS
+	if not TILE_SIZE then
+		warn("[DropService] WorldConfig.TILE_SIZE_STUDS is nil — falling back to 4")
+		TILE_SIZE = 4
+	end
 	local worldName = string.upper(entry.worldName or "UNKNOWN")
 	local xOffset = entry.xOffset or 0
 	local tileX = entry.tileX or 0
@@ -111,9 +115,13 @@ end
 	- Fires DropSpawned to ALL players in that world
 ]]
 function DropService.SpawnDrop(itemId: number, count: number, worldData: table, tileX: number, tileY: number)
-	local tileSize = WorldConfig.TILE_SIZE or 4
+	local tileSize = WorldConfig.TILE_SIZE_STUDS
+	if not tileSize then
+		warn("[DropService] WorldConfig.TILE_SIZE_STUDS is nil — falling back to 4")
+		tileSize = 4
+	end
 	local worldName = string.upper(worldData.name or "MAIN")
-	print(`[DropService] SpawnDrop tileSize={WorldConfig.TILE_SIZE} itemId={itemId}`)
+	print(`[DropService] SpawnDrop tileSize={tileSize} itemId={itemId}`)
 	print(`[DropService] SpawnDrop: itemId={itemId}x{count} at ({tileX},{tileY}) world="{worldName}"`)
 
 	worldData.drops = worldData.drops or {}
@@ -147,7 +155,11 @@ end
 	Creates Parts for all persisted drops.
 ]]
 function DropService.LoadSavedDrops(worldName: string, worldData: table)
-	local tileSize = WorldConfig.TILE_SIZE or 4
+	local tileSize = WorldConfig.TILE_SIZE_STUDS
+	if not tileSize then
+		warn("[DropService] WorldConfig.TILE_SIZE_STUDS is nil — falling back to 4")
+		tileSize = 4
+	end
 	if not worldData.drops or #worldData.drops == 0 then
 		return
 	end
@@ -205,7 +217,13 @@ local function onRequestPickupDrop(player: Player, dropId: number)
 	end
 
 	if not dropEntry then
-		print(`[DropService] Pickup REJECTED: dropId={dropId} not found in worldData.drops[{playerWorld}]`)
+		print(`[DropService] Pickup REJECTED: dropId={dropId} not found in world "{playerWorld}" (may be from a different world)`)
+		return
+	end
+
+	-- Nil guard: drop entry must have valid position data
+	if not dropEntry.tileX or not dropEntry.tileY then
+		print(`[DropService] Pickup REJECTED: drop #{dropId} missing position data (tileX={dropEntry.tileX}, tileY={dropEntry.tileY})`)
 		return
 	end
 
@@ -220,7 +238,11 @@ local function onRequestPickupDrop(player: Player, dropId: number)
 	if character then
 		local hrp = character:FindFirstChild("HumanoidRootPart")
 		if hrp then
-			local tileSize = WorldConfig.TILE_SIZE or 4
+			local tileSize = WorldConfig.TILE_SIZE_STUDS
+			if not tileSize then
+				warn("[DropService] WorldConfig.TILE_SIZE_STUDS is nil — falling back to 4")
+				tileSize = 4
+			end
 			local dropPosX = dropEntry.tileX * tileSize + (dropEntry.xOffset or 0)
 			local dropPosY = -dropEntry.tileY * tileSize
 			local distance = math.sqrt((hrp.Position.X - dropPosX)^2 + (hrp.Position.Y - dropPosY)^2)
