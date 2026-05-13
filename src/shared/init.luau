@@ -17,4 +17,7 @@ Shared.SpliceRecipes = require(script.SpliceRecipes)
 -- Uses separate "GrowRemotes" folder to avoid conflict with legacy Remotes module
 Shared.RemoteEvents = require(script.RemoteEvents)
 
+-- Gem compression utility (shared between server and client)
+Shared.GemUtils = require(script.GemUtils)
+
 return Shared

@@ -226,9 +226,19 @@ RemoteEvents.DropSpawned.OnClientEvent:Connect(function(dropEntry: table)
 		0
 	)
 
+	local isGem = dropEntry.itemId == 28 and dropEntry.gemTier ~= nil
+
 	local part = Instance.new("Part")
 	part.Name = `Drop_{dropEntry.itemId}`
-	part.Size = Vector3.new(1, 1, 0.2)
+
+	if isGem then
+		local tier = dropEntry.gemTier
+		local s = tier.partSize or 1.0
+		part.Size = Vector3.new(s, s, 0.2)
+	else
+		part.Size = Vector3.new(1, 1, 0.2)
+	end
+
 	part.CFrame = CFrame.new(restingPosition)
 	part.Anchored = true
 	part.CanCollide = false
@@ -252,7 +262,14 @@ RemoteEvents.DropSpawned.OnClientEvent:Connect(function(dropEntry: table)
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "DropSprite"
-	billboard.Size = UDim2.new(0, 28, 0, 28)
+
+	if isGem then
+		local tier = dropEntry.gemTier
+		billboard.Size = UDim2.new(0, tier.billboardSize, 0, tier.billboardSize)
+	else
+		billboard.Size = UDim2.new(0, 28, 0, 28)
+	end
+
 	billboard.StudsOffset = Vector3.new(0, 1.2, 0)
 	billboard.AlwaysOnTop = true
 	billboard.Parent = part
@@ -263,17 +280,57 @@ RemoteEvents.DropSpawned.OnClientEvent:Connect(function(dropEntry: table)
 	image.ResampleMode = Enum.ResamplerMode.Pixelated
 	image.Image = ""
 
-	local Shared = require(ReplicatedStorage.Shared)
-	local itemDef = Shared.ItemDatabase.GetItem(dropEntry.itemId) or Shared.ItemDatabase.GetSeed(dropEntry.itemId)
-	if itemDef then
-		image.BackgroundColor3 = itemDef.color
-		image.BackgroundTransparency = 0
+	if isGem then
+		local tier = dropEntry.gemTier
+		if tier.imageId and tier.imageId ~= "" then
+			image.Image = "rbxassetid://" .. tier.imageId
+			image.BackgroundTransparency = 1
+		else
+			image.BackgroundColor3 = tier.color
+			image.BackgroundTransparency = 0
+		end
 	else
-		image.BackgroundTransparency = 1
+		local Shared = require(ReplicatedStorage.Shared)
+		local itemDef = Shared.ItemDatabase.GetItem(dropEntry.itemId) or Shared.ItemDatabase.GetSeed(dropEntry.itemId)
+		if itemDef then
+			image.BackgroundColor3 = itemDef.color
+			image.BackgroundTransparency = 0
+		else
+			image.BackgroundTransparency = 1
+		end
 	end
 
 	image.Parent = billboard
 	part.Parent = folder
+
+	-- Gem visuals: bounce tween + auto-destroy after 4 seconds
+	if isGem then
+		local tier = dropEntry.gemTier
+		local bounceHeight = (tier.partSize or 1.0) * 0.8
+
+		-- Bounce up
+		local TweenService = game:GetService("TweenService")
+		local tweenInfoUp = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local goalUp = { CFrame = restingPosition + Vector3.new(0, 0, bounceHeight) }
+		local tweenUp = TweenService:Create(part, tweenInfoUp, goalUp)
+		tweenUp:Play()
+
+		tweenUp.Completed:Connect(function()
+			if not part or not part.Parent then return end
+			-- Fall back down
+			local tweenInfoDown = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			local goalDown = { CFrame = restingPosition }
+			local tweenDown = TweenService:Create(part, tweenInfoDown, goalDown)
+			tweenDown:Play()
+		end)
+
+		-- Auto-destroy after 4 seconds (visual only — balance already updated on server)
+		task.delay(4, function()
+			if part and part.Parent then
+				part:Destroy()
+			end
+		end)
+	end
 end)
 
 -- DropDestroyed: server says a drop was picked up → destroy visual Part
@@ -313,9 +370,19 @@ RemoteEvents.WorldDropsLoaded.OnClientEvent:Connect(function(worldName: string, 
 			0
 		)
 
+		local isGem = entry.itemId == 28 and entry.gemTier ~= nil
+
 		local part = Instance.new("Part")
 		part.Name = `Drop_{entry.itemId}`
-		part.Size = Vector3.new(1, 1, 0.2)
+
+		if isGem then
+			local tier = entry.gemTier
+			local s = tier.partSize or 1.0
+			part.Size = Vector3.new(s, s, 0.2)
+		else
+			part.Size = Vector3.new(1, 1, 0.2)
+		end
+
 		part.CFrame = CFrame.new(restingPosition)
 		part.Anchored = true
 		part.CanCollide = false
@@ -339,7 +406,14 @@ RemoteEvents.WorldDropsLoaded.OnClientEvent:Connect(function(worldName: string, 
 
 		local billboard = Instance.new("BillboardGui")
 		billboard.Name = "DropSprite"
-		billboard.Size = UDim2.new(0, 28, 0, 28)
+
+		if isGem then
+			local tier = entry.gemTier
+			billboard.Size = UDim2.new(0, tier.billboardSize, 0, tier.billboardSize)
+		else
+			billboard.Size = UDim2.new(0, 28, 0, 28)
+		end
+
 		billboard.StudsOffset = Vector3.new(0, 1.2, 0)
 		billboard.AlwaysOnTop = true
 		billboard.Parent = part
@@ -350,12 +424,23 @@ RemoteEvents.WorldDropsLoaded.OnClientEvent:Connect(function(worldName: string, 
 		image.ResampleMode = Enum.ResamplerMode.Pixelated
 		image.Image = ""
 
-		local itemDef = Shared.ItemDatabase.GetItem(entry.itemId) or Shared.ItemDatabase.GetSeed(entry.itemId)
-		if itemDef then
-			image.BackgroundColor3 = itemDef.color
-			image.BackgroundTransparency = 0
+		if isGem then
+			local tier = entry.gemTier
+			if tier.imageId and tier.imageId ~= "" then
+				image.Image = "rbxassetid://" .. tier.imageId
+				image.BackgroundTransparency = 1
+			else
+				image.BackgroundColor3 = tier.color
+				image.BackgroundTransparency = 0
+			end
 		else
-			image.BackgroundTransparency = 1
+			local itemDef = Shared.ItemDatabase.GetItem(entry.itemId) or Shared.ItemDatabase.GetSeed(entry.itemId)
+			if itemDef then
+				image.BackgroundColor3 = itemDef.color
+				image.BackgroundTransparency = 0
+			else
+				image.BackgroundTransparency = 1
+			end
 		end
 
 		image.Parent = billboard

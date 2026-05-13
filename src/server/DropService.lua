@@ -13,6 +13,7 @@ local RemoteEvents = require(ReplicatedStorage.Shared.RemoteEvents)
 local PlayerManager = require(script.Parent.PlayerManager)
 local WorldConfig = require(ReplicatedStorage.Shared.WorldConfig)
 local ItemDatabase = require(ReplicatedStorage.Shared.ItemDatabase)
+local GemUtils = require(ReplicatedStorage.Shared.GemUtils)
 
 local DropService = {}
 
@@ -58,7 +59,18 @@ local function createDropPart(entry: table): Part
 
 	local part = Instance.new("Part")
 	part.Name = `Drop_{entry.itemId}`
-	part.Size = Vector3.new(1, 1, 0.2)
+
+	-- Gem-specific visual handling (itemId 28 with gemTier)
+	local isGem = entry.itemId == 28 and entry.gemTier ~= nil
+
+	if isGem then
+		local tier = entry.gemTier
+		local s = tier.partSize or 1.0
+		part.Size = Vector3.new(s, s, 0.2)
+	else
+		part.Size = Vector3.new(1, 1, 0.2)
+	end
+
 	part.CFrame = CFrame.new(restingPosition)
 	part.Anchored = true
 	part.CanCollide = false
@@ -84,7 +96,14 @@ local function createDropPart(entry: table): Part
 
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "DropSprite"
-	billboard.Size = UDim2.new(0, 28, 0, 28)
+
+	if isGem then
+		local tier = entry.gemTier
+		billboard.Size = UDim2.new(0, tier.billboardSize, 0, tier.billboardSize)
+	else
+		billboard.Size = UDim2.new(0, 28, 0, 28)
+	end
+
 	billboard.StudsOffset = Vector3.new(0, 1.2, 0)
 	billboard.AlwaysOnTop = true
 	billboard.Parent = part
@@ -95,12 +114,23 @@ local function createDropPart(entry: table): Part
 	image.ResampleMode = Enum.ResamplerMode.Pixelated
 	image.Image = ""
 
-	local itemDef = ItemDatabase.GetItem(entry.itemId) or ItemDatabase.GetSeed(entry.itemId)
-	if itemDef then
-		image.BackgroundColor3 = itemDef.color
-		image.BackgroundTransparency = 0
+	if isGem then
+		local tier = entry.gemTier
+		if tier.imageId and tier.imageId ~= "" then
+			image.Image = "rbxassetid://" .. tier.imageId
+			image.BackgroundTransparency = 1
+		else
+			image.BackgroundColor3 = tier.color
+			image.BackgroundTransparency = 0
+		end
 	else
-		image.BackgroundTransparency = 1
+		local itemDef = ItemDatabase.GetItem(entry.itemId) or ItemDatabase.GetSeed(entry.itemId)
+		if itemDef then
+			image.BackgroundColor3 = itemDef.color
+			image.BackgroundTransparency = 0
+		else
+			image.BackgroundTransparency = 1
+		end
 	end
 
 	image.Parent = billboard
@@ -148,6 +178,49 @@ function DropService.SpawnDrop(itemId: number, count: number, worldData: table, 
 	PlayerManager.BroadcastToWorld(worldName, "DropSpawned", dropEntry)
 
 	print(`[DropService] Drop #{dropEntry.id} spawned — worldData.drops now has {#worldData.drops} entries`)
+end
+
+--[[
+	Spawn gem visual drops for a total gem amount.
+	Compresses the total into tiered Parts via GemUtils.Compress.
+	Gems are visual only — the player's balance is already updated by GemService.
+	The visual Parts auto-despawn on the client after 4 seconds.
+
+	@param totalGems: number — total gems to show as visual drops
+	@param worldData: table — the world data
+	@param tileX: number — tile X coordinate
+	@param tileY: number — tile Y coordinate
+]]
+function DropService.SpawnGemDrops(totalGems: number, worldData: table, tileX: number, tileY: number)
+	if totalGems <= 0 then
+		return
+	end
+
+	local tiers = GemUtils.Compress(totalGems)
+	print(`[DropService] Gem compression: {totalGems} gems → {#tiers} Parts`)
+
+	for i, tier in ipairs(tiers) do
+		-- Small X offset so gems fan out slightly
+		local xOffset = (i - math.ceil(#tiers / 2)) * 0.4
+
+		worldData.drops = worldData.drops or {}
+		dropIdCounter += 1
+
+		local dropEntry = {
+			id = dropIdCounter,
+			itemId = 28,          -- Gems item ID
+			count = tier.value,   -- The gem value this Part represents
+			worldName = string.upper(worldData.name or "MAIN"),
+			tileX = tileX,
+			tileY = tileY,
+			xOffset = xOffset,
+			gemTier = tier,       -- Full tier data for visual rendering
+		}
+
+		table.insert(worldData.drops, dropEntry)
+		createDropPart(dropEntry)
+		PlayerManager.BroadcastToWorld(string.upper(worldData.name or "MAIN"), "DropSpawned", dropEntry)
+	end
 end
 
 --[[

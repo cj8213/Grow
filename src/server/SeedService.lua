@@ -16,6 +16,7 @@ local DropService = require(script.Parent.DropService)
 local PlayerManager = require(script.Parent.PlayerManager)
 local SpliceService = require(script.Parent.SpliceService)
 local WorldService = require(script.Parent.WorldService)
+local GemService = require(script.Parent.GemService)
 
 local SeedService = {}
 
@@ -319,6 +320,7 @@ function SeedService.HarvestTree(player: Player, worldData: table, tileX: number
 	end
 
 	-- Drop gems — farmable seeds use special payout overrides
+	-- Gems are awarded directly to balance via GemService (no physical pickup needed)
 	local farmableGemPayouts = {
 		[54] = { min = 40, max = 80 },   -- Ashveil Seed (2hr)
 		[55] = { min = 150, max = 280 }, -- Duskbloom Seed (8hr)
@@ -332,7 +334,13 @@ function SeedService.HarvestTree(player: Player, worldData: table, tileX: number
 	else
 		gemDropCount = rng:NextInteger(1, DEFAULT_GEM_DROP_MAX)
 	end
-	drops[28] = (drops[28] or 0) + gemDropCount
+
+	-- Update player's gem balance directly
+	if gemDropCount > 0 then
+		GemService.AddGems(player, gemDropCount)
+		-- Spawn visual gem drops (eye candy only — balance already updated)
+		DropService.SpawnGemDrops(gemDropCount, worldData, tileX, tileY)
+	end
 
 	-- === CLEAR THE TILE ===
 	tile.treeData = nil

@@ -14,6 +14,7 @@ local InventoryService = require(script.Parent.InventoryService)
 -- PlayerManager handles inventory operations (AddItem, RemoveItem, HasItem)
 local PlayerManager = require(script.Parent.PlayerManager)
 local DropService = require(script.Parent.DropService)
+local GemService = require(script.Parent.GemService)
 local RemoteEvents = require(ReplicatedStorage.Shared.RemoteEvents)
 
 local BlockService = {}
@@ -201,12 +202,12 @@ function BlockService.BreakBlock(player: Player, worldData: table, tileX: number
 		end
 	end
 
-	-- Roll for gem drop
-	if itemDef.gemDropMax and itemDef.gemDropMax > 0 then
-		local gemCount = BlockService._randomRange(itemDef.gemDropMin or 0, itemDef.gemDropMax)
-		if gemCount > 0 then
-			drops[28] = (drops[28] or 0) + gemCount -- ID 28 = Gems
-		end
+	-- Award gems directly to balance via GemService (no physical drop — balance updated immediately)
+	local gemsAwarded = GemService.AwardBlockBreakGems(player, itemId)
+
+	-- Spawn visual gem drops (eye candy only — balance already updated)
+	if gemsAwarded > 0 then
+		DropService.SpawnGemDrops(gemsAwarded, worldData, tileX, tileY)
 	end
 
 	-- === SPECIAL: Breaking a World Lock (fg=26) returns the lock item ===

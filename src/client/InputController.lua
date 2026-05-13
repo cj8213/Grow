@@ -798,6 +798,12 @@ end)
 						continue
 					end
 
+					-- Skip gem drops (itemId 28) — gems are auto-collected via GemService balance update, not walked-over pickup
+					local itemIdValue = dropPart:FindFirstChild("DropItemId")
+					if itemIdValue and itemIdValue:IsA("IntValue") and itemIdValue.Value == 28 then
+						continue
+					end
+
 					-- Read dropId from IntValue
 					local idValue = dropPart:FindFirstChild("DropId")
 					if not idValue or not idValue:IsA("IntValue") then

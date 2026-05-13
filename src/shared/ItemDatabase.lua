@@ -254,7 +254,7 @@ define(11, {
 	tradeable = true,
 	seedId = 111,       -- Sign Seed
 	color = Color3.fromRGB(210, 180, 140),
-	imageId = "",
+	imageId = "rbxassetid://118404659054826",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -275,7 +275,7 @@ define(12, {
 	tradeable = true,
 	seedId = 112,       -- Lava Rock Seed
 	color = Color3.fromRGB(80, 40, 20),
-	imageId = "",
+	imageId = "rbxassetid://72473862449276",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -301,7 +301,7 @@ define(13, {
 	tradeable = true,
 	seedId = 113,
 	color = Color3.fromRGB(120, 100, 70),
-	imageId = "",
+	imageId = "rbxassetid://109502215355930",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -322,7 +322,7 @@ define(14, {
 	tradeable = true,
 	seedId = 114,
 	color = Color3.fromRGB(200, 170, 120),
-	imageId = "",
+	imageId = "rbxassetid://98041739376660",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -343,7 +343,7 @@ define(15, {
 	tradeable = true,
 	seedId = 115,
 	color = Color3.fromRGB(180, 150, 100),
-	imageId = "",
+	imageId = "rbxassetid://134132747626452",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -364,7 +364,7 @@ define(16, {
 	tradeable = true,
 	seedId = 116,
 	color = Color3.fromRGB(255, 255, 224),
-	imageId = "",
+	imageId = "rbxassetid://102435867739905",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -385,7 +385,7 @@ define(17, {
 	tradeable = true,
 	seedId = 117,
 	color = Color3.fromRGB(150, 120, 70),
-	imageId = "",
+	imageId = "rbxassetid://108239919023549",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -406,7 +406,7 @@ define(18, {
 	tradeable = true,
 	seedId = 118,
 	color = Color3.fromRGB(100, 100, 110),
-	imageId = "",
+	imageId = "rbxassetid://120931054512065",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -427,7 +427,7 @@ define(19, {
 	tradeable = true,
 	seedId = 119,
 	color = Color3.fromRGB(180, 80, 60),
-	imageId = "",
+	imageId = "rbxassetid://101761957180486",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -448,7 +448,7 @@ define(20, {
 	tradeable = true,
 	seedId = 120,
 	color = Color3.fromRGB(255, 50, 50),
-	imageId = "",
+	imageId = "rbxassetid://118378431137107",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -469,7 +469,7 @@ define(21, {
 	tradeable = true,
 	seedId = 121,
 	color = Color3.fromRGB(255, 165, 0),
-	imageId = "",
+	imageId = "rbxassetid://76673057864309",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -490,7 +490,7 @@ define(22, {
 	tradeable = true,
 	seedId = 122,
 	color = Color3.fromRGB(200, 100, 200),
-	imageId = "",
+	imageId = "rbxassetid://139700384668985",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -511,7 +511,7 @@ define(23, {
 	tradeable = true,
 	seedId = 123,
 	color = Color3.fromRGB(255, 191, 0),
-	imageId = "",
+	imageId = "rbxassetid://107948735600192",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -532,7 +532,7 @@ define(24, {
 	tradeable = true,
 	seedId = 124,
 	color = Color3.fromRGB(210, 150, 30),
-	imageId = "",
+	imageId = "rbxassetid://101282259232931",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -553,7 +553,7 @@ define(25, {
 	tradeable = true,
 	seedId = 125,
 	color = Color3.fromRGB(100, 150, 80),
-	imageId = "",
+	imageId = "rbxassetid://71329705806912",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -578,7 +578,7 @@ define(26, {
 	tradeable = true,
 	seedId = nil,
 	color = Color3.fromRGB(255, 215, 0),
-	imageId = "",
+	imageId = "rbxassetid://86557484810308",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -599,7 +599,7 @@ define(27, {
 	tradeable = true,
 	seedId = nil,
 	color = Color3.fromRGB(192, 192, 192),
-	imageId = "",
+	imageId = "rbxassetid://105268350752697",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -641,7 +641,7 @@ define(29, {
 	tradeable = true,
 	seedId = 129,
 	color = Color3.fromRGB(50, 205, 50),
-	imageId = "",
+	imageId = "rbxassetid://118440032843667",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -662,7 +662,7 @@ define(30, {
 	tradeable = true,
 	seedId = 130,
 	color = Color3.fromRGB(173, 216, 230),
-	imageId = "",
+	imageId = "rbxassetid://127872667578769",
 	isTallDoor = false,
 	meshId = "",
 	plantImageId = "",
@@ -688,7 +688,7 @@ define(31, {
 	tradeable = true,
 	seedId = 131,
 	color = Color3.fromRGB(139, 90, 43),
-	imageId = "",
+	imageId = "rbxassetid://113589302088582",
 	isTallDoor = false,
 })
 
@@ -707,7 +707,7 @@ define(32, {
 	tradeable = true,
 	seedId = 132,
 	color = Color3.fromRGB(180, 60, 20),
-	imageId = "",
+	imageId = "rbxassetid://98640789818789",
 	isTallDoor = false,
 })
 
@@ -726,7 +726,7 @@ define(33, {
 	tradeable = true,
 	seedId = 133,
 	color = Color3.fromRGB(101, 67, 33),
-	imageId = "",
+	imageId = "rbxassetid://127726248037714",
 	isTallDoor = false,
 })
 
@@ -745,7 +745,7 @@ define(34, {
 	tradeable = true,
 	seedId = 134,
 	color = Color3.fromRGB(160, 120, 60),
-	imageId = "",
+	imageId = "rbxassetid://125006516619664",
 	isTallDoor = false,
 })
 
@@ -764,7 +764,7 @@ define(35, {
 	tradeable = true,
 	seedId = 135,
 	color = Color3.fromRGB(120, 120, 120),
-	imageId = "",
+	imageId = "rbxassetid://135816795428313",
 	isTallDoor = true,
 })
 
@@ -783,7 +783,7 @@ define(36, {
 	tradeable = true,
 	seedId = 136,
 	color = Color3.fromRGB(255, 160, 30),
-	imageId = "",
+	imageId = "rbxassetid://79497909129646",
 	isTallDoor = false,
 })
 
@@ -802,7 +802,7 @@ define(37, {
 	tradeable = true,
 	seedId = 137,
 	color = Color3.fromRGB(160, 110, 50),
-	imageId = "",
+	imageId = "rbxassetid://92799618899049",
 	isTallDoor = false,
 })
 
@@ -821,7 +821,7 @@ define(38, {
 	tradeable = true,
 	seedId = 138,
 	color = Color3.fromRGB(140, 140, 150),
-	imageId = "",
+	imageId = "rbxassetid://113418813524635",
 	isTallDoor = false,
 })
 
@@ -840,7 +840,7 @@ define(39, {
 	tradeable = true,
 	seedId = 139,
 	color = Color3.fromRGB(180, 50, 50),
-	imageId = "",
+	imageId = "rbxassetid://137504139714853",
 	isTallDoor = false,
 })
 
@@ -859,7 +859,7 @@ define(40, {
 	tradeable = true,
 	seedId = 140,
 	color = Color3.fromRGB(150, 100, 40),
-	imageId = "",
+	imageId = "rbxassetid://128432872921195",
 	isTallDoor = false,
 })
 
@@ -878,7 +878,7 @@ define(41, {
 	tradeable = true,
 	seedId = 141,
 	color = Color3.fromRGB(80, 80, 80),
-	imageId = "",
+	imageId = "rbxassetid://84858393791521",
 	isTallDoor = true,
 })
 
@@ -897,7 +897,7 @@ define(42, {
 	tradeable = true,
 	seedId = 142,
 	color = Color3.fromRGB(220, 180, 50),
-	imageId = "",
+	imageId = "rbxassetid://116609909525400",
 	isTallDoor = false,
 })
 
@@ -916,7 +916,7 @@ define(43, {
 	tradeable = true,
 	seedId = 143,
 	color = Color3.fromRGB(60, 40, 30),
-	imageId = "",
+	imageId = "rbxassetid://84205057264408",
 	isTallDoor = false,
 })
 
@@ -935,7 +935,7 @@ define(44, {
 	tradeable = true,
 	seedId = 144,
 	color = Color3.fromRGB(20, 20, 30),
-	imageId = "",
+	imageId = "rbxassetid://88495987009409",
 	isTallDoor = false,
 })
 
@@ -1189,6 +1189,7 @@ for id, item in pairs(ItemDatabase.Items) do
 			name = item.name .. " Seed",
 			type = ItemTypes.SEED,
 			color = item.color,
+			imageId = item.imageId or "",  -- Inherit parent block's icon
 			parentBlockId = id,
 			growthTime = item.growthTime,
 			rarity = item.rarity,
@@ -1218,6 +1219,7 @@ define(1000, {
 	damage = 1,
 	breakPower = 1,
 	color = Color3.fromRGB(200, 180, 150),
+	imageId = "rbxassetid://135066310952911",
 })
 
 define(1001, {
@@ -1235,6 +1237,7 @@ define(1001, {
 	damage = 2,
 	breakPower = 3,
 	color = Color3.fromRGB(160, 120, 80),
+	imageId = "",
 })
 
 define(1002, {
@@ -1252,6 +1255,7 @@ define(1002, {
 	damage = 1,
 	breakPower = 1,
 	color = Color3.fromRGB(180, 180, 100),
+	imageId = "rbxassetid://116375653457331",
 })
 
 define(1003, {
@@ -1269,6 +1273,7 @@ define(1003, {
 	damage = 1,
 	breakPower = 2,
 	color = Color3.fromRGB(200, 100, 100),
+	imageId = "",
 })
 
 define(1004, {
@@ -1286,6 +1291,7 @@ define(1004, {
 	damage = 1,
 	breakPower = 2,
 	color = Color3.fromRGB(140, 160, 180),
+	imageId = "",
 })
 
 --[[
