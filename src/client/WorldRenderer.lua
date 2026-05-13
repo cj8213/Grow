@@ -162,57 +162,63 @@ local function tileToWorld(x: number, y: number): Vector3
     return Vector3.new(x * TILE_SIZE, -y * TILE_SIZE, 0)
 end
 
+-- Track which item IDs have already had their texture-application logged (one print per unique ID)
+local texturedItems: { [number]: boolean } = {}
+
 local function getTexturesForBlock(fgId, x, y)
-    -- Returns (topFaceTextureId, sideFaceTextureId, frontBackTextureId) or nil,nil,nil if no texture
-    -- frontBackTextureId defaults to sideFaceTextureId if nil
-    
-    if not assetsFolder then
-        return nil, nil, nil
-    end
-    
+    local item = ItemDatabase.GetItem(fgId)
+    if not item then return nil, nil, nil end
+
+    -- SPECIAL CASE: Dirt (ID 1) — grass on top if exposed, dirt if buried
     if fgId == 1 then
-        -- Dirt block: check the tile ABOVE (y-1) to determine if this is the top-most exposed block.
-        -- A block is "top-most" if there is NO block above it (sky/air above).
-        -- If there IS a block above, this block is buried and should show Dirt on all faces.
-        local aboveRow = tileGrid[y]  -- tileGrid is 1-indexed, y is 0-based, so tileGrid[y] = row at Y = y-1
+        local aboveRow = tileGrid[y]
         local aboveTile = aboveRow and aboveRow[x + 1]
         local aboveFg = aboveTile and aboveTile.fg or 0
-        
-        local dirtDecal = assetsFolder:FindFirstChild("Dirt")
-        local grassDecal = assetsFolder:FindFirstChild("Grass")
-        local topGrassDecal = assetsFolder:FindFirstChild("TopGrass")
+
+        local dirtDecal = assetsFolder and assetsFolder:FindFirstChild("Dirt")
+        local grassDecal = assetsFolder and assetsFolder:FindFirstChild("Grass")
+        local topGrassDecal = assetsFolder and assetsFolder:FindFirstChild("TopGrass")
         local dirtTex = dirtDecal and dirtDecal.Texture
         local grassTex = grassDecal and grassDecal.Texture
         local topGrassTex = topGrassDecal and topGrassDecal.Texture
-        
-        -- Surface blocks (LAYER_SURFACE_Y) always show Grass on top, Grass on front/back/left/right, Dirt on sides (bottom)
-        -- This matches the user's requirement: "the most top dirt block should have the grass texture always"
-        if y == LAYER_SURFACE_Y then
-            return topGrassTex or grassTex, dirtTex, grassTex
-        end
-        
+
         if aboveFg == 0 or aboveFg == nil then
-            -- Top-most exposed Dirt (no block above): Grass/TopGrass on top, Grass on front/back/left/right, Dirt on bottom
+            -- Exposed top: grass on top and sides, dirt on bottom
             return topGrassTex or grassTex, dirtTex, grassTex
         else
-            -- Buried Dirt (block above): Dirt on all faces
+            -- Buried: dirt on all faces
             return dirtTex, dirtTex, dirtTex
         end
-    elseif fgId == 7 then
-        -- Grass block: TopGrass on top, Grass on sides and front/back
-        local grassDecal = assetsFolder:FindFirstChild("Grass")
-        local topGrassDecal = assetsFolder:FindFirstChild("TopGrass")
+    end
+
+    -- SPECIAL CASE: Grass block (ID 7) — same as exposed dirt
+    if fgId == 7 then
+        local grassDecal = assetsFolder and assetsFolder:FindFirstChild("Grass")
+        local topGrassDecal = assetsFolder and assetsFolder:FindFirstChild("TopGrass")
         local grassTex = grassDecal and grassDecal.Texture
         local topGrassTex = topGrassDecal and topGrassDecal.Texture
         return topGrassTex or grassTex, grassTex, grassTex
     end
-    
+
+    -- ALL OTHER ITEMS: use imageId from ItemDatabase
+    if item.imageId and item.imageId ~= "" then
+        local texStr = "rbxassetid://" .. item.imageId
+        if not texturedItems[fgId] then
+            texturedItems[fgId] = true
+            print(`[WorldRenderer] Textured itemId={fgId} with imageId {item.imageId}`)
+        end
+        -- Same texture on all 6 faces
+        return texStr, texStr, texStr
+    end
+
+    -- No texture: return nil so BrickColor fallback is used
     return nil, nil, nil
 end
 
 local function applyBlockTextures(fgPart: Part, fgId: number, x: number, y: number)
     -- Determine which textures to use for this block
     local topTex, sideTex, frontBackTex = getTexturesForBlock(fgId, x, y)
+    -- If all nil, skip entirely — BrickColor shows as fallback
     if not topTex and not sideTex and not frontBackTex then return end
 
     -- Use frontBackTex for front/back/left/right faces, falling back to sideTex
@@ -287,6 +293,16 @@ local function createTileParts(x: number, y: number)
             fgPart.Material = Enum.Material.SmoothPlastic
             fgPart.BrickColor = BrickColor.new(getItemColor(fgId))
             fgPart.Parent = worldTilesFolder
+
+            -- Check if item has a meshId for 3D mesh instead of plain Part
+            if itemDef and itemDef.meshId and itemDef.meshId ~= "" then
+                local mesh = Instance.new("SpecialMesh")
+                mesh.MeshType = Enum.MeshType.FileMesh
+                mesh.MeshId = "rbxassetid://" .. itemDef.meshId
+                mesh.Scale = Vector3.new(TILE_SIZE / 4, TILE_SIZE * 2 / 4, TILE_SIZE / 4)
+                mesh.Parent = fgPart
+                fgPart.BrickColor = BrickColor.White() -- mesh uses its own texture
+            end
         else
             -- Standard block: 1 tile
             fgPart = Instance.new("Part")

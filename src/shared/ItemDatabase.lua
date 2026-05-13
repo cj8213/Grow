@@ -38,6 +38,10 @@ define(1, {
 	tradeable = true,
 	seedId = 101,
 	color = Color3.fromRGB(139, 90, 43),
+	imageId = "rbxassetid://91101329416235",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 2: Rock — hard block found in deep layers
@@ -56,6 +60,10 @@ define(2, {
 	tradeable = true,
 	seedId = 102,       -- Rock Seed
 	color = Color3.fromRGB(128, 128, 128),
+	imageId = "rbxassetid://125633742953848",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 3: Cave Background — background layer tile in caves
@@ -73,6 +81,10 @@ define(3, {
 	tradeable = true,
 	seedId = 103,       -- Cave Background Seed
 	color = Color3.fromRGB(60, 60, 70),
+	imageId = "rbxassetid://97926342023521",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 4: Lava — deadly liquid in deep layers
@@ -90,6 +102,10 @@ define(4, {
 	tradeable = true,
 	seedId = 104,       -- Lava Seed
 	color = Color3.fromRGB(255, 69, 0),
+	imageId = "rbxassetid://106833162686556",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 5: Bedrock — indestructible foundation block
@@ -107,6 +123,10 @@ define(5, {
 	tradeable = false,
 	seedId = nil,
 	color = Color3.fromRGB(20, 20, 20),
+	imageId = "rbxassetid://114144699929760",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 6: Main Door — spawn point, exits to hub
@@ -124,6 +144,10 @@ define(6, {
 	tradeable = false,
 	seedId = nil,
 	color = Color3.fromRGB(139, 69, 19),
+	imageId = "rbxassetid://111713526790983",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 --[[
@@ -146,6 +170,10 @@ define(7, {
 	tradeable = true,
 	seedId = 107,       -- Grass Seed
 	color = Color3.fromRGB(34, 139, 34),
+	imageId = "rbxassetid://112409667347350",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 8: Door — player-placed teleport door
@@ -163,6 +191,10 @@ define(8, {
 	tradeable = true,
 	seedId = 108,       -- Door Seed
 	color = Color3.fromRGB(160, 82, 45),
+	imageId = "rbxassetid://140046352458021",
+	isTallDoor = true,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 9: Wood Block — basic building material
@@ -180,6 +212,10 @@ define(9, {
 	tradeable = true,
 	seedId = 109,       -- Wood Block Seed
 	color = Color3.fromRGB(139, 119, 80),
+	imageId = "rbxassetid://90210724832451",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 10: Glass Pane — transparent decorative block
@@ -197,6 +233,10 @@ define(10, {
 	tradeable = true,
 	seedId = 110,       -- Glass Pane Seed
 	color = Color3.fromRGB(173, 216, 230),
+	imageId = "rbxassetid://107982064754937",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 11: Sign — display text block
@@ -214,6 +254,10 @@ define(11, {
 	tradeable = true,
 	seedId = 111,       -- Sign Seed
 	color = Color3.fromRGB(210, 180, 140),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 12: Lava Rock — hardened lava block
@@ -231,6 +275,10 @@ define(12, {
 	tradeable = true,
 	seedId = 112,       -- Lava Rock Seed
 	color = Color3.fromRGB(80, 40, 20),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 --[[
@@ -253,6 +301,10 @@ define(13, {
 	tradeable = true,
 	seedId = 113,
 	color = Color3.fromRGB(120, 100, 70),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 14: Pointy Sign
@@ -270,6 +322,10 @@ define(14, {
 	tradeable = true,
 	seedId = 114,
 	color = Color3.fromRGB(200, 170, 120),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 15: Crappy Sign
@@ -287,6 +343,10 @@ define(15, {
 	tradeable = true,
 	seedId = 115,
 	color = Color3.fromRGB(180, 150, 100),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 16: Daisy — small decorative flower block
@@ -304,6 +364,10 @@ define(16, {
 	tradeable = true,
 	seedId = 116,
 	color = Color3.fromRGB(255, 255, 224),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 17: Wooden Platform — walkable top, pass-through from below
@@ -321,6 +385,10 @@ define(17, {
 	tradeable = true,
 	seedId = 117,
 	color = Color3.fromRGB(150, 120, 70),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 18: Rock Background
@@ -338,6 +406,10 @@ define(18, {
 	tradeable = true,
 	seedId = 118,
 	color = Color3.fromRGB(100, 100, 110),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 19: Bricks
@@ -355,6 +427,10 @@ define(19, {
 	tradeable = true,
 	seedId = 119,
 	color = Color3.fromRGB(180, 80, 60),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 20: Rose
@@ -372,6 +448,10 @@ define(20, {
 	tradeable = true,
 	seedId = 120,
 	color = Color3.fromRGB(255, 50, 50),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 21: Torch
@@ -389,6 +469,10 @@ define(21, {
 	tradeable = true,
 	seedId = 121,
 	color = Color3.fromRGB(255, 165, 0),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 22: Mushroom
@@ -406,6 +490,10 @@ define(22, {
 	tradeable = true,
 	seedId = 122,
 	color = Color3.fromRGB(200, 100, 200),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 23: Amber Glass
@@ -423,6 +511,10 @@ define(23, {
 	tradeable = true,
 	seedId = 123,
 	color = Color3.fromRGB(255, 191, 0),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 24: Super Crate Box (decorative)
@@ -440,6 +532,10 @@ define(24, {
 	tradeable = true,
 	seedId = 124,
 	color = Color3.fromRGB(210, 150, 30),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 25: Cargo Shorts (wearable — kept as item for now)
@@ -457,6 +553,10 @@ define(25, {
 	tradeable = true,
 	seedId = 125,
 	color = Color3.fromRGB(100, 150, 80),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 --[[
@@ -478,6 +578,10 @@ define(26, {
 	tradeable = true,
 	seedId = nil,
 	color = Color3.fromRGB(255, 215, 0),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 27: Small Lock — locks a local area
@@ -495,6 +599,10 @@ define(27, {
 	tradeable = true,
 	seedId = nil,
 	color = Color3.fromRGB(192, 192, 192),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 28: Gems (the non-tradeable currency item)
@@ -512,6 +620,10 @@ define(28, {
 	tradeable = false,
 	seedId = nil,
 	color = Color3.fromRGB(0, 255, 0),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 29: Sugar Cane
@@ -529,6 +641,10 @@ define(29, {
 	tradeable = true,
 	seedId = 129,
 	color = Color3.fromRGB(50, 205, 50),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 -- 30: Window
@@ -546,6 +662,10 @@ define(30, {
 	tradeable = true,
 	seedId = 130,
 	color = Color3.fromRGB(173, 216, 230),
+	imageId = "",
+	isTallDoor = false,
+	meshId = "",
+	plantImageId = "",
 })
 
 --[[
